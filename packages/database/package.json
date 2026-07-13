@@ -1,0 +1,31 @@
+{
+  "name": "@sitetrack/database",
+  "private": true,
+  "version": "0.1.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "db:generate": "node scripts/generate-schema.js && prisma generate",
+    "db:migrate:dev": "node scripts/generate-schema.js && prisma migrate dev",
+    "db:migrate:deploy": "node scripts/generate-schema.js && prisma migrate deploy",
+    "db:seed": "node scripts/generate-schema.js && tsx prisma/seed.ts",
+    "db:backfill-items": "node scripts/generate-schema.js && tsx prisma/backfill-items.ts",
+    "db:promote-admin": "node scripts/generate-schema.js && tsx prisma/promote-platform-admin.ts",
+    "db:demote-admin": "node scripts/generate-schema.js && tsx prisma/demote-platform-admin.ts",
+    "db:create-admin": "node scripts/generate-schema.js && tsx prisma/create-platform-admin.ts",
+    "db:studio": "node scripts/generate-schema.js && prisma studio",
+    "build": "node scripts/generate-schema.js && prisma generate && tsc -p tsconfig.json",
+    "lint": "echo \"no lint\"",
+    "test": "echo \"no tests\""
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "argon2": "^0.41.1"
+  },
+  "devDependencies": {
+    "@sitetrack/config": "workspace:*",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

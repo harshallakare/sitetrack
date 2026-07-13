@@ -1,0 +1,551 @@
+// This is a TEMPLATE, not a real Prisma schema. `scripts/generate-schema.js`
+// renders `prisma/schema.prisma` from this file by substituting the provider
+// placeholder token below with the value of DATABASE_PROVIDER (sqlite | postgresql | mysql).
+//
+// Cross-engine rules enforced throughout this file (see plan doc for why):
+// - No `enum` (unsupported on SQLite) -> plain String, validated in
+//   @sitetrack/shared-types via zod.
+// - No array fields (`String[]`) -> real Tag/join tables instead.
+// - No `@db.*` native-type attributes -> plain scalar types only.
+// - Money is stored as Int in minor units (paise/cents), NEVER Float and
+//   NEVER Prisma's `Decimal` type -- Decimal is unsupported on the SQLite
+//   connector, which must remain the default local engine. Int minor-units
+//   sidesteps float drift on every engine uniformly. Conversion helpers live
+//   in @sitetrack/shared-types (toMinorUnits/fromMinorUnits).
+// - IDs use cuid(), not autoincrement.
+// - No `Json` type either -- unsupported on the SQLite connector as of
+//   Prisma 5.x. Opaque blobs (Vendor.paymentDetails, AuditLog before/after)
+//   are plain String columns holding JSON.stringify'd text, serialized and
+//   parsed in the application service layer, never queried/filtered on.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "__DB_PROVIDER__"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & tenancy
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+  sites       Site[]
+  vendors     Vendor[]
+  items       Item[]
+  tags        Tag[]
+  deliveries  Delivery[]
+  accounts    Account[]
+  payments    Payment[]
+  auditLogs   AuditLog[]
+  refreshTokens RefreshToken[]
+  invitations Invitation[]
+  subscription Subscription?
+}
+
+// SaaS plans (the "one project free, pay for more" model). maxSites = -1
+// means unlimited. Managed from the admin panel; seeded with sensible
+// defaults on boot.
+model Plan {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  maxSites          Int
+  priceMonthlyMinor Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+// One subscription per organization. Absence implies the free default.
+model Subscription {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  planId         String
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  name            String
+  isActive        Boolean  @default(true)
+  // Platform-wide flag, independent of any Membership -- grants access to
+  // /admin/* routes (cross-tenant org list/suspend, user list, stats). Not
+  // settable via any API route; only via the promote-platform-admin CLI
+  // script, since there is no in-app path to create the first admin.
+  isPlatformAdmin Boolean  @default(false)
+  // Per-user UI preferences. App-validated strings ("en" | "hi" for locale,
+  // "light" | "dark" for theme), persisted so a user's choice follows them
+  // across devices; the frontend also mirrors them into cookies for
+  // no-flash SSR.
+  locale          String   @default("en")
+  theme           String   @default("light")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  memberships   Membership[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+  adminSessions AdminSession[]
+  sentInvitations Invitation[] @relation("InvitedBy")
+  passwordResetTokens PasswordResetToken[]
+}
+
+// Single-use password reset tokens. Only the SHA-256 hash is stored, so a DB
+// leak can't be used to reset passwords. Short-lived (1h) and consumed on use.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Fully independent of RefreshToken/Organization on purpose: platform-admin
+// authentication is a separate credential domain from tenant authentication
+// (separate login page, separate JWT secret, separate cookies on the
+// frontend). A session here carries no organizationId because admin routes
+// never operate within a tenant context -- they use the unscoped Prisma
+// client by design.
+model AdminSession {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Role is app-validated ("OWNER" | "SUPERVISOR" | "ACCOUNTANT"), not a Prisma enum.
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String
+  isActive       Boolean  @default(true)
+  invitedAt      DateTime @default(now())
+  joinedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model RefreshToken {
+  id             String    @id @default(cuid())
+  userId         String
+  organizationId String
+  tokenHash      String    @unique
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  userAgent      String?
+  ip             String?
+  createdAt      DateTime  @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Sites
+// ---------------------------------------------------------------------------
+
+model Site {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  address        String?
+  plannedSqft    Float?
+  unitCount      Int?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   Delivery[]
+  accounts     Account[]
+  payments     Payment[]
+  budgetLines  BudgetLine[]
+
+  @@index([organizationId])
+}
+
+// Planned spend per site per category. Actual is computed from delivery line
+// items (item.category) at read time, so this table only holds the plan.
+model BudgetLine {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  siteId             String
+  category           String
+  plannedAmountMinor Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, category])
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Shared org-level catalog (deliberately org-scoped, not site-scoped --
+// a client's vendors/materials are reused across all of their sites)
+// ---------------------------------------------------------------------------
+
+model Tag {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendorTags   VendorTag[]
+  itemTags     ItemTag[]
+
+  @@unique([organizationId, name])
+}
+
+model Vendor {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactPerson  String
+  companyName    String?
+  email          String?
+  phone          String?
+  address        String?
+  paymentDetails String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tags         VendorTag[]
+  deliveries   Delivery[]
+  payments     Payment[]
+
+  @@index([organizationId])
+}
+
+model VendorTag {
+  organizationId String
+  vendorId       String
+  tagId          String
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([vendorId, tagId])
+  @@index([organizationId])
+}
+
+// unitOfMeasure is app-validated (see UNITS_OF_MEASURE in shared-types), not a Prisma enum.
+model Item {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  unitOfMeasure  String
+  category       String?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tags         ItemTag[]
+  lineItems    DeliveryLineItem[]
+
+  @@index([organizationId])
+}
+
+model ItemTag {
+  organizationId String
+  itemId         String
+  tagId          String
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Deliveries (site-scoped)
+// ---------------------------------------------------------------------------
+
+// status is app-validated (DELIVERY_STATUSES), not a Prisma enum.
+model Delivery {
+  id              String   @id @default(cuid())
+  organizationId  String
+  siteId          String
+  vendorId        String
+  deliveryDate    DateTime
+  referenceNumber String?
+  notes           String?
+  status          String   @default("RECEIVED")
+  createdByUserId String
+  idempotencyKey  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site               @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  vendor       Vendor             @relation(fields: [vendorId], references: [id])
+  lineItems    DeliveryLineItem[]
+  attachments  Attachment[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, siteId])
+  @@index([vendorId])
+}
+
+model DeliveryLineItem {
+  id             String @id @default(cuid())
+  organizationId String
+  deliveryId     String
+  itemId         String
+  // Denormalized from the parent Delivery so vendor payables can be computed
+  // with a single groupBy over line items instead of loading every delivery
+  // into memory. Set by DeliveriesService on create; backfilled by migration.
+  // Nullable only because it was added after launch -- new rows always set it.
+  vendorId       String?
+  quantity       Float
+  // Minor units (paise/cents). See file header for why not Decimal/Float.
+  unitPriceMinor Int
+  lineTotalMinor Int
+  notes          String?
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  item     Item     @relation(fields: [itemId], references: [id])
+
+  @@index([deliveryId])
+  @@index([itemId])
+  @@index([organizationId])
+  @@index([vendorId])
+}
+
+model Attachment {
+  id               String   @id @default(cuid())
+  organizationId   String
+  deliveryId       String
+  fileName         String
+  mimeType         String
+  sizeBytes        Int
+  storagePath      String
+  uploadedByUserId String
+  createdAt        DateTime @default(now())
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Accounts & payments (site-scoped; accountId may be reused if org wants a
+// single shared account across sites since siteId is nullable)
+// ---------------------------------------------------------------------------
+
+// type is app-validated (ACCOUNT_TYPES), not a Prisma enum.
+model Account {
+  id             String   @id @default(cuid())
+  organizationId String
+  siteId         String?
+  name           String
+  type           String
+  openingBalanceMinor Int @default(0)
+  currentBalanceMinor Int @default(0)
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site?        @relation(fields: [siteId], references: [id])
+  payments     Payment[]
+
+  @@index([organizationId])
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  organizationId  String
+  siteId          String
+  accountId       String
+  vendorId        String
+  amountMinor     Int
+  paymentDate     DateTime
+  notes           String?
+  createdByUserId String
+  idempotencyKey  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [accountId], references: [id])
+  vendor       Vendor       @relation(fields: [vendorId], references: [id])
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, siteId])
+  @@index([accountId])
+  @@index([vendorId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail (differentiator vs. SiteWise -- surfaced as an "Activity" tab)
+// ---------------------------------------------------------------------------
+
+// action is app-validated (AUDIT_ACTIONS), not a Prisma enum.
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  entityType     String
+  entityId       String
+  action         String
+  actorUserId    String?
+  beforeJson     String?
+  afterJson      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorUserId], references: [id])
+
+  @@index([organizationId, entityType, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// Organization member invitations (tenant-scoped)
+// ---------------------------------------------------------------------------
+
+// role and status are app-validated strings, not Prisma enums.
+// status: "PENDING" | "ACCEPTED" | "REVOKED"
+model Invitation {
+  id              String    @id @default(cuid())
+  organizationId  String
+  email           String
+  role            String
+  token           String    @unique
+  status          String    @default("PENDING")
+  invitedByUserId String
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("InvitedBy", fields: [invitedByUserId], references: [id])
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// Platform-level settings (no organization -- these belong to the operator,
+// configured only from the admin panel). Single-row tables keyed by a fixed
+// id "singleton". Secret fields hold AES-256-GCM ciphertext (see
+// common/crypto/secret-crypto.ts), never plaintext.
+// ---------------------------------------------------------------------------
+
+model NotificationSettings {
+  id                  String   @id @default("singleton")
+
+  emailEnabled        Boolean  @default(false)
+  smtpHost            String?
+  smtpPort            Int?
+  smtpSecure          Boolean  @default(true)
+  smtpUser            String?
+  smtpPassEnc         String?
+  emailFrom           String?
+  emailFromName       String?
+
+  whatsappEnabled     Boolean  @default(false)
+  whatsappProvider    String?
+  whatsappApiKeyEnc   String?
+  whatsappFrom        String?
+
+  smsEnabled          Boolean  @default(false)
+  smsProvider         String?
+  smsApiKeyEnc        String?
+  smsApiSecretEnc     String?
+  smsFrom             String?
+
+  // JSON array string, e.g. ["EMAIL","WHATSAPP","SMS"] -- delivery is tried
+  // in this order. Stored as String (no Json type on the SQLite connector).
+  channelPriority     String   @default("[\"EMAIL\",\"WHATSAPP\",\"SMS\"]")
+
+  updatedAt           DateTime @updatedAt
+}
+
+// provider and mode are app-validated strings.
+// provider: "RAZORPAY" | "STRIPE" | "PAYU" | "CASHFREE"
+// mode: "TEST" | "LIVE"
+// One config per provider; at most one isActive across all rows (enforced in
+// the service layer). Config-only for now -- no live charge flow yet.
+model PaymentGatewayConfig {
+  id           String   @id @default(cuid())
+  provider     String   @unique
+  mode         String   @default("TEST")
+  keyId        String
+  keySecretEnc String
+  isActive     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Deliverability record for every notification the dispatch service attempts.
+// channel: "EMAIL" | "WHATSAPP" | "SMS"
+// status:  "SENT" | "FAILED" | "SKIPPED"
+// organizationId is nullable -- some notifications are platform-level (e.g. a
+// test send from the admin panel) and belong to no tenant.
+model NotificationLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  channel        String
+  recipient      String
+  template       String
+  subject        String?
+  status         String
+  error          String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([createdAt])
+}

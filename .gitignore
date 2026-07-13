@@ -1,0 +1,33 @@
+# Dependencies & build output
+node_modules/
+.turbo/
+dist/
+.next/
+out/
+*.tsbuildinfo
+coverage/
+
+# Secrets -- NEVER commit. `.env` (no slash) matches at every depth, covering
+# apps/api/.env and packages/database/.env. Templates live in .env.example.
+.env
+.env.local
+
+# Local database & generated schema (schema.prisma is rendered from
+# schema.template.prisma by generate-schema.js; the template is the source)
+packages/database/prisma/schema.prisma
+packages/database/prisma/dev.db
+packages/database/prisma/dev.db-journal
+*.db
+
+# User-uploaded files (local disk storage)
+apps/api/uploads/
+
+# OS / editor / logs
+.DS_Store
+npm-debug.log*
+pnpm-debug.log*
+
+# Reference material (SiteWise screenshots doc) + Word lock files --
+# remove these two lines if you want the doc versioned
+*.docx
+~$*
