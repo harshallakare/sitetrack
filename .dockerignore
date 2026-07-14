@@ -1,0 +1,26 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+.git
+.github
+packages/database/prisma/dev.db
+packages/database/prisma/dev.db-journal
+**/*.db
+apps/api/uploads
+Doc1.docx
+.claude
+*.md
+!README.md
+
+# Local dev secrets & config -- must never enter a build context/image.
+# Production values are supplied at runtime via env_file (.env.production),
+# not baked in. Real values (JWT secrets, ENCRYPTION_KEY) live in these on a
+# dev machine and packages/database/.env pins DATABASE_PROVIDER=sqlite for
+# local dev, which would otherwise silently override the postgres build arg.
+.env
+.env.*
+!.env.example
+!.env.production.example

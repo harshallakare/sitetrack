@@ -7,10 +7,12 @@ out/
 *.tsbuildinfo
 coverage/
 
-# Secrets -- NEVER commit. `.env` (no slash) matches at every depth, covering
-# apps/api/.env and packages/database/.env. Templates live in .env.example.
-.env
-.env.local
+# Secrets -- NEVER commit. `.env*` (no slash) matches at every depth, covering
+# apps/api/.env, packages/database/.env, and .env.production on the server.
+# Templates live in .env.example / .env.production.example (explicitly un-ignored).
+.env*
+!.env.example
+!.env.production.example
 
 # Local database & generated schema (schema.prisma is rendered from
 # schema.template.prisma by generate-schema.js; the template is the source)
@@ -18,6 +20,11 @@ packages/database/prisma/schema.prisma
 packages/database/prisma/dev.db
 packages/database/prisma/dev.db-journal
 *.db
+
+# prisma/migrations is generated per-run by generate-schema.js, copied from
+# whichever prisma/engines/<provider>/migrations matches DATABASE_PROVIDER.
+# Those per-engine folders are the real, tracked migration history.
+packages/database/prisma/migrations/
 
 # User-uploaded files (local disk storage)
 apps/api/uploads/

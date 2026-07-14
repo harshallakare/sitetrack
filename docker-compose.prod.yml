@@ -1,0 +1,82 @@
+# Production deployment stack -- works on any Linux server with Docker +
+# the Docker Compose plugin installed. Nothing else is required (no Node,
+# no pnpm, no Postgres client) on the host itself.
+#
+# Only `web` and `caddy` are internet-facing. The Next.js app proxies every
+# API call server-side (apps/web/app/api/proxy/**), so `api` never needs a
+# public port -- it's reachable only on the internal Docker network.
+#
+# Usage: see scripts/deploy.sh and scripts/update.sh, or DEPLOY.md.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sitetrack}
+      POSTGRES_USER: ${POSTGRES_USER:-sitetrack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in .env.production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sitetrack}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Point DATABASE_URL in .env.production at a managed Postgres instead
+    # (RDS, Supabase, Neon, etc.) and remove this service if you don't want
+    # to run the database in-container.
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      args:
+        DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
+    volumes:
+      - api_uploads:/repo/apps/api/uploads
+    expose:
+      - "4000"
+    # No `ports:` -- deliberately not published to the host. Debug with
+    # `docker compose -f docker-compose.prod.yml exec api sh` if needed.
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    env_file:
+      - .env.production
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  api_uploads:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,18 @@
+# Reverse proxy + automatic HTTPS (Let's Encrypt) for the web app.
+#
+# Set DOMAIN in .env.production to your real domain (e.g. app.example.com)
+# and point its DNS A/AAAA record at this server before deploying -- Caddy
+# requests and renews the certificate itself, no certbot/nginx config needed.
+#
+# Left as `localhost` this just serves plain HTTP, useful for a first smoke
+# test on a server without DNS set up yet.
+
+{$DOMAIN:localhost} {
+	reverse_proxy web:3000
+	encode gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

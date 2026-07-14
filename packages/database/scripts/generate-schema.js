@@ -1,11 +1,20 @@
 #!/usr/bin/env node
 // Renders prisma/schema.prisma from prisma/schema.template.prisma by
-// substituting the __DB_PROVIDER__ placeholder with DATABASE_PROVIDER.
+// substituting the __DB_PROVIDER__ placeholder with DATABASE_PROVIDER, and
+// swaps prisma/migrations to match the selected engine.
 //
 // Prisma does not support choosing `datasource.provider` via env var at
 // runtime -- only `url` can be `env(...)`. This script is the workaround:
 // it must run before every `prisma generate` / `prisma migrate *` call
 // (wired into package.json scripts as a pre-step).
+//
+// Each engine's migration SQL is engine-specific (different DDL syntax) and
+// Prisma locks a migrations folder to one provider via migration_lock.toml,
+// so the three histories can't share prisma/migrations directly. The
+// per-engine histories live in prisma/engines/<provider>/migrations (real,
+// committed files); prisma/migrations itself is a generated/gitignored copy
+// of whichever one matches the current DATABASE_PROVIDER -- same pattern as
+// schema.prisma being generated from schema.template.prisma.
 
 const fs = require("fs");
 const path = require("path");
@@ -60,3 +69,24 @@ const rendered = template.replaceAll("__DB_PROVIDER__", provider);
 fs.writeFileSync(outputPath, rendered, "utf8");
 
 console.log(`[generate-schema] Rendered prisma/schema.prisma with provider="${provider}"`);
+
+function syncMigrations() {
+  const sourceDir = path.resolve(__dirname, `../prisma/engines/${provider}/migrations`);
+  const targetDir = path.resolve(__dirname, "../prisma/migrations");
+
+  if (!fs.existsSync(sourceDir)) {
+    console.error(
+      `[generate-schema] No migration history for provider="${provider}" yet ` +
+        `(expected prisma/engines/${provider}/migrations). Create one by running ` +
+        `'prisma migrate dev --name init' against a real ${provider} database, ` +
+        `then move the generated prisma/migrations into prisma/engines/${provider}/migrations.`
+    );
+    process.exit(1);
+  }
+
+  fs.rmSync(targetDir, { recursive: true, force: true });
+  fs.cpSync(sourceDir, targetDir, { recursive: true });
+  console.log(`[generate-schema] Synced prisma/migrations from prisma/engines/${provider}/migrations`);
+}
+
+syncMigrations();
