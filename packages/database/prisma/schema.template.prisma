@@ -86,6 +86,11 @@ model Subscription {
   // Razorpay (or other gateway) subscription id, once checkout is started.
   providerSubscriptionId String?   @unique
   currentPeriodEnd       DateTime?
+  // Set when the owner cancels: Razorpay keeps billing/access ACTIVE through
+  // the current cycle, so this is what the UI uses to show "ends on <date>"
+  // instead of misrepresenting the org as fully, indefinitely subscribed.
+  // Reset to false once the webhook confirms the subscription actually ended.
+  cancelAtPeriodEnd      Boolean   @default(false)
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 

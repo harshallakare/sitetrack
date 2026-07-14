@@ -92,6 +92,19 @@ export class RazorpayService {
   }
 
   /**
+   * Cancels a Razorpay subscription at the end of the current billing cycle
+   * (not immediately) -- the customer keeps access through what they already
+   * paid for, and Razorpay itself fires the `subscription.cancelled` webhook
+   * once the cycle actually ends.
+   */
+  async cancelSubscription(providerSubscriptionId: string, creds: ActiveGatewayCredentials) {
+    const razorpay = this.client(creds);
+    return razorpay.subscriptions.cancel(providerSubscriptionId, true).catch((err) => {
+      throw new BadRequestException(razorpayErrorMessage(err));
+    });
+  }
+
+  /**
    * Verifies the signature returned to the checkout success handler after
    * the customer authorizes payment (HMAC-SHA256 of "paymentId|subscriptionId"
    * with the key secret, per Razorpay's subscription checkout docs).

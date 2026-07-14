@@ -7,6 +7,7 @@ import { isUniqueConstraintError } from "../common/prisma-errors";
 import { insensitiveContains } from "../common/search";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService, type UploadedFileLike } from "../storage/storage.service";
+import { BudgetAlertService } from "../budget/budget-alert.service";
 
 const DELIVERY_INCLUDE = {
   vendor: true,
@@ -21,7 +22,8 @@ export class DeliveriesService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly budgetAlerts: BudgetAlertService
   ) {}
 
   list(params: { siteId?: string; search?: string; limit?: number; skip?: number } = {}) {
@@ -139,6 +141,18 @@ export class DeliveriesService {
       }
       throw err;
     }
+
+    // Best-effort: never blocks or fails the delivery that already
+    // committed (see BudgetAlertService for why it swallows its own errors).
+    await this.budgetAlerts.checkCrossedThresholds({
+      organizationId,
+      siteId: dto.siteId,
+      lineItems: dto.lineItems.map((li) => ({
+        itemId: li.itemId,
+        quantity: li.quantity,
+        unitPriceMinor: toMinorUnits(li.unitPrice),
+      })),
+    });
 
     return this.get(delivery.id);
   }

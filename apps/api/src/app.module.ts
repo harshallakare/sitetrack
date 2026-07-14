@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ScheduleModule } from "@nestjs/schedule";
 import { ClsModule } from "nestjs-cls";
 import { validateEnv } from "./config/env.validation";
 import { HealthController } from "./health.controller";
@@ -39,6 +40,9 @@ import { RolesGuard } from "./common/guards/roles.guard";
       global: true,
       middleware: { mount: true },
     }),
+    // Powers WeeklyDigestService's @Cron job -- in-process, no separate
+    // worker (fine for the single api-instance deployment default).
+    ScheduleModule.forRoot(),
     // Generous global ceiling; auth endpoints override with much tighter
     // per-route @Throttle() limits (brute-force / reset-email-bombing guard).
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 300 }]),

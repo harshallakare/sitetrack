@@ -83,17 +83,25 @@ export class PlansService implements OnModuleInit {
     }
   }
 
-  /** Billing summary for the customer panel: current plan, usage, options. */
+  /** Billing summary for the customer panel: current plan, usage, options, subscription state. */
   async billingSummary(organizationId: string) {
-    const [plan, siteCount, plans] = await Promise.all([
+    const [plan, siteCount, plans, subscription] = await Promise.all([
       this.planForOrganization(organizationId),
       this.prisma.unscoped.site.count({ where: { organizationId } }),
       this.listPlans(),
+      this.prisma.unscoped.subscription.findUnique({ where: { organizationId } }),
     ]);
     return {
       currentPlan: plan,
       usage: { sites: siteCount, maxSites: plan.maxSites },
       availablePlans: plans,
+      subscription: subscription
+        ? {
+            status: subscription.status,
+            cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+            currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
+          }
+        : null,
     };
   }
 
@@ -180,6 +188,66 @@ export class PlansService implements OnModuleInit {
   }
 
   /**
+   * Self-serve cancellation: schedules the subscription to end at the
+   * current cycle's close rather than revoking access immediately (the
+   * customer already paid for this cycle). The org stays on the Unlimited
+   * plan's limits until Razorpay's `subscription.cancelled` webhook actually
+   * lands at cycle end and flips status to CANCELLED.
+   */
+  async cancelSubscription(organizationId: string, actorUserId: string) {
+    const subscription = await this.prisma.unscoped.subscription.findUnique({ where: { organizationId } });
+    if (!subscription || subscription.status !== ACTIVE_SUBSCRIPTION_STATUS || !subscription.providerSubscriptionId) {
+      throw new BadRequestException("There's no active subscription to cancel");
+    }
+    if (subscription.cancelAtPeriodEnd) {
+      throw new BadRequestException("Cancellation is already scheduled for the end of the current billing period");
+    }
+
+    const creds = await this.razorpay.activeCredentials();
+    await this.razorpay.cancelSubscription(subscription.providerSubscriptionId, creds);
+
+    await this.prisma.db.$transaction(async (tx) => {
+      await tx.subscription.update({ where: { organizationId }, data: { cancelAtPeriodEnd: true } });
+      await writeAuditLog(tx, {
+        organizationId,
+        entityType: "Subscription",
+        entityId: subscription.id,
+        action: "UPDATE",
+        actorUserId,
+        before: { status: subscription.status, cancelAtPeriodEnd: false },
+        after: { status: subscription.status, cancelAtPeriodEnd: true },
+      });
+    });
+
+    return this.billingSummary(organizationId);
+  }
+
+  /**
+   * Billing history for the customer panel: every recorded status/
+   * cancellation transition for this org's subscription, newest first.
+   * Reads AuditLog directly (rather than the generic /activity endpoint)
+   * because the generic list doesn't surface before/after state, which is
+   * exactly what a billing history needs to be legible.
+   */
+  async billingHistory(organizationId: string, limit = 20) {
+    const logs = await this.prisma.db.auditLog.findMany({
+      where: { entityType: "Subscription" },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(limit, 100),
+    });
+    return logs.map((log) => {
+      const after = log.afterJson ? (JSON.parse(log.afterJson) as Record<string, unknown>) : {};
+      return {
+        id: log.id,
+        createdAt: log.createdAt.toISOString(),
+        status: (after.status as string | undefined) ?? null,
+        cancelAtPeriodEnd: (after.cancelAtPeriodEnd as boolean | undefined) ?? null,
+        viaWebhookEvent: (after.viaWebhookEvent as string | undefined) ?? null,
+      };
+    });
+  }
+
+  /**
    * Applies a Razorpay subscription webhook event. Renewals
    * ("subscription.charged") keep the org ACTIVE; failures/cancellation
    * demote it, which drops the org back to the Free plan's limits on its
@@ -204,11 +272,16 @@ export class PlansService implements OnModuleInit {
     // already resolved to a specific organizationId above) and the audit
     // row's organizationId are supplied explicitly, not inferred from a
     // request that doesn't exist.
+    // Once the subscription actually ends, "cancellation scheduled" is no
+    // longer meaningful state -- it's just cancelled now.
+    const clearsCancelFlag = nextStatus === "CANCELLED";
+
     await this.prisma.unscoped.$transaction(async (tx) => {
       await tx.subscription.update({
         where: { providerSubscriptionId: entity.id },
         data: {
           status: nextStatus,
+          ...(clearsCancelFlag ? { cancelAtPeriodEnd: false } : {}),
           ...(entity.current_end ? { currentPeriodEnd: new Date(entity.current_end * 1000) } : {}),
         },
       });
@@ -218,8 +291,12 @@ export class PlansService implements OnModuleInit {
         entityId: subscription.id,
         action: "UPDATE",
         actorUserId: null,
-        before: { status: subscription.status },
-        after: { status: nextStatus, viaWebhookEvent: event.event },
+        before: { status: subscription.status, cancelAtPeriodEnd: subscription.cancelAtPeriodEnd },
+        after: {
+          status: nextStatus,
+          viaWebhookEvent: event.event,
+          ...(clearsCancelFlag ? { cancelAtPeriodEnd: false } : {}),
+        },
       });
     });
   }

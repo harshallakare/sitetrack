@@ -31,4 +31,15 @@ export class BillingController {
   ) {
     return this.plansService.verifyCheckoutPayment(currentUser.organizationId, currentUser.userId, dto);
   }
+
+  @Roles("OWNER")
+  @Post("cancel")
+  cancel(@CurrentUser() currentUser: TenantContext) {
+    return this.plansService.cancelSubscription(currentUser.organizationId, currentUser.userId);
+  }
+
+  @Get("history")
+  history(@CurrentUser() currentUser: TenantContext) {
+    return this.plansService.billingHistory(currentUser.organizationId);
+  }
 }

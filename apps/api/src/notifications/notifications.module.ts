@@ -1,5 +1,6 @@
 import { Global, Module } from "@nestjs/common";
 import { NotificationDispatchService } from "./notification-dispatch.service";
+import { WeeklyDigestService } from "./weekly-digest.service";
 import { EmailDriver } from "./drivers/email.driver";
 import { WhatsappDriver } from "./drivers/whatsapp.driver";
 import { SmsDriver } from "./drivers/sms.driver";
@@ -8,7 +9,7 @@ import { SmsDriver } from "./drivers/sms.driver";
 // dispatch service without importing this module everywhere.
 @Global()
 @Module({
-  providers: [NotificationDispatchService, EmailDriver, WhatsappDriver, SmsDriver],
+  providers: [NotificationDispatchService, WeeklyDigestService, EmailDriver, WhatsappDriver, SmsDriver],
   exports: [NotificationDispatchService],
 })
 export class NotificationsModule {}

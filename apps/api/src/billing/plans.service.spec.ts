@@ -186,6 +186,120 @@ describe("PlansService.verifyCheckoutPayment", () => {
   });
 });
 
+describe("PlansService.cancelSubscription", () => {
+  function makeTxCapturingPrisma(subscription: { id: string; status: string; cancelAtPeriodEnd: boolean; providerSubscriptionId: string | null }) {
+    const updates: any[] = [];
+    const auditLogs: any[] = [];
+    return {
+      prisma: {
+        unscoped: { subscription: { findUnique: async () => subscription } },
+        db: {
+          $transaction: async (fn: any) =>
+            fn({
+              subscription: { update: async (args: any) => updates.push(args) },
+              auditLog: { create: async (args: any) => auditLogs.push(args) },
+            }),
+        },
+      } as any,
+      updates,
+      auditLogs,
+    };
+  }
+
+  it("rejects when there's no subscription at all", async () => {
+    const prisma = { unscoped: { subscription: { findUnique: async () => null } } } as any;
+    const svc = new PlansService(prisma, {} as any);
+    await expect(svc.cancelSubscription("org1", "user1")).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rejects when the subscription isn't ACTIVE (already free/lapsed)", async () => {
+    const { prisma } = makeTxCapturingPrisma({
+      id: "sub1",
+      status: "PAST_DUE",
+      cancelAtPeriodEnd: false,
+      providerSubscriptionId: "sub_real",
+    });
+    const svc = new PlansService(prisma, {} as any);
+    await expect(svc.cancelSubscription("org1", "user1")).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rejects a second cancellation request once one is already scheduled", async () => {
+    const { prisma } = makeTxCapturingPrisma({
+      id: "sub1",
+      status: "ACTIVE",
+      cancelAtPeriodEnd: true,
+      providerSubscriptionId: "sub_real",
+    });
+    const svc = new PlansService(prisma, {} as any);
+    await expect(svc.cancelSubscription("org1", "user1")).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("cancels at Razorpay (cycle-end, not immediate) and records cancelAtPeriodEnd", async () => {
+    const { prisma, updates, auditLogs } = makeTxCapturingPrisma({
+      id: "sub1",
+      status: "ACTIVE",
+      cancelAtPeriodEnd: false,
+      providerSubscriptionId: "sub_real",
+    });
+    const cancelSubscription = jest.fn(async () => ({}));
+    const razorpay = { activeCredentials: async () => ({ keyId: "k", keySecret: "s", webhookSecret: null }), cancelSubscription } as any;
+
+    // billingSummary is called at the end -- stub the pieces it needs.
+    prisma.unscoped.plan = { findUnique: async () => ({ id: "plan_free", slug: "free", maxSites: 1 }) };
+    prisma.unscoped.site = { count: async () => 0 };
+
+    const svc = new PlansService(prisma, razorpay);
+    // Re-stub listPlans dependency minimally by giving plan.findMany too.
+    (prisma.unscoped.plan as any).findMany = async () => [];
+
+    await svc.cancelSubscription("org1", "user1");
+
+    expect(cancelSubscription).toHaveBeenCalledWith("sub_real", expect.objectContaining({ keyId: "k" }));
+    expect(updates[0]).toEqual({ where: { organizationId: "org1" }, data: { cancelAtPeriodEnd: true } });
+    expect(auditLogs[0].data.afterJson).toContain('"cancelAtPeriodEnd":true');
+  });
+});
+
+describe("PlansService.billingHistory", () => {
+  it("parses the after-state JSON into a structured entry", async () => {
+    const prisma = {
+      db: {
+        auditLog: {
+          findMany: async () => [
+            {
+              id: "log1",
+              createdAt: new Date("2026-01-05T00:00:00Z"),
+              afterJson: JSON.stringify({ status: "ACTIVE", viaWebhookEvent: "subscription.charged" }),
+            },
+          ],
+        },
+      },
+    } as any;
+    const svc = new PlansService(prisma, {} as any);
+
+    const history = await svc.billingHistory("org1");
+    expect(history).toEqual([
+      {
+        id: "log1",
+        createdAt: "2026-01-05T00:00:00.000Z",
+        status: "ACTIVE",
+        cancelAtPeriodEnd: null,
+        viaWebhookEvent: "subscription.charged",
+      },
+    ]);
+  });
+
+  it("tolerates a null afterJson rather than throwing", async () => {
+    const prisma = {
+      db: { auditLog: { findMany: async () => [{ id: "log1", createdAt: new Date(), afterJson: null }] } },
+    } as any;
+    const svc = new PlansService(prisma, {} as any);
+
+    const history = await svc.billingHistory("org1");
+    expect(history[0].status).toBeNull();
+  });
+});
+
 describe("money helpers", () => {
   it("converts major to minor units and back without drift", () => {
     expect(toMinorUnits(355.5)).toBe(35550);
