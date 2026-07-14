@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { adminServerFetch } from "@/lib/admin-server-api";
-import { ShieldCheck, LayoutDashboard, Building2, Users, ArrowLeft, Bell, CreditCard } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, Building2, Users, ArrowLeft, Bell, CreditCard, Database } from "lucide-react";
 import { AdminLogoutButton } from "./admin-logout-button";
 
 interface CurrentAdmin {
@@ -51,6 +51,7 @@ export default async function PlatformAdminLayout({ children }: { children: Reac
           <AdminNavLink href="/admin/users" icon={Users} label="Users" />
           <AdminNavLink href="/admin/notifications" icon={Bell} label="Notifications" />
           <AdminNavLink href="/admin/payment-gateways" icon={CreditCard} label="Payments" />
+          <AdminNavLink href="/admin/database" icon={Database} label="Database" />
         </nav>
       </header>
       <main className="mx-auto max-w-6xl p-4 md:p-6">{children}</main>

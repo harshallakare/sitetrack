@@ -29,6 +29,9 @@ packages/database/prisma/migrations/
 # User-uploaded files (local disk storage)
 apps/api/uploads/
 
+# Database backup/restore snapshots -- may contain real customer data, never versioned
+apps/api/backups/
+
 # OS / editor / logs
 .DS_Store
 npm-debug.log*

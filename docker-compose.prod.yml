@@ -43,6 +43,7 @@ services:
       DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
     volumes:
       - api_uploads:/repo/apps/api/uploads
+      - api_backups:/repo/apps/api/backups
     expose:
       - "4000"
     # No `ports:` -- deliberately not published to the host. Debug with
@@ -78,5 +79,9 @@ services:
 volumes:
   postgres_data:
   api_uploads:
+  # Pre-restore safety snapshots written by the admin panel's Database page
+  # (see apps/api/src/platform-admin/database-backup.service.ts) -- survives
+  # container recreation so a bad restore stays recoverable.
+  api_backups:
   caddy_data:
   caddy_config:

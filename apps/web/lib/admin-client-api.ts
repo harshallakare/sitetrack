@@ -4,10 +4,14 @@
  * two token domains from ever sharing a code path on the client side either.
  */
 export async function adminClientFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  // FormData (e.g. the database restore file upload) must NOT get a
+  // Content-Type set here -- the browser needs to set its own with the
+  // multipart boundary, which a hardcoded header would clobber.
+  const isFormData = init?.body instanceof FormData;
   const res = await fetch(`/api/admin-proxy${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(init?.headers ?? {}),
     },
   });

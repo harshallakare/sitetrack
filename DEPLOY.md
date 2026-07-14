@@ -142,7 +142,23 @@ docker compose -f docker-compose.prod.yml down -v
 
 The database lives in the `postgres_data` Docker volume; uploaded
 attachments live in `api_uploads`. At minimum, back up the database
-regularly:
+regularly.
+
+**From the admin panel** (`/admin/database`, platform admin only): click
+**Download Backup** to get an engine-native dump (`pg_dump --format=custom`
+on Postgres) straight to your browser — no server-side storage, nothing to
+clean up. **Restore** on the same page uploads a previously-downloaded
+backup; it requires typing `RESTORE` to confirm, validates the file's
+content actually matches the current engine before touching anything, and
+automatically writes a safety snapshot of the *current* state (to the
+`api_backups` volume) immediately before overwriting it — so a bad restore
+is itself recoverable. This is genuinely destructive: it replaces the
+**entire** database for every organization on this deployment, not just one.
+Restart the api container after a restore (`docker compose -f
+docker-compose.prod.yml restart api`) so it reconnects cleanly.
+
+**From the command line**, the equivalent Postgres commands still work if
+you'd rather not go through the UI:
 
 ```bash
 # Dump
@@ -153,8 +169,8 @@ docker compose -f docker-compose.prod.yml exec -T postgres \
 docker compose -f docker-compose.prod.yml exec -T postgres \
   psql -U sitetrack sitetrack < backup-2026-07-14.sql
 ```
-Copy the resulting `.sql` file off the server (S3, another machine, etc.) —
-a backup that lives only on the box it's protecting isn't a backup.
+Either way, copy the resulting file off the server (S3, another machine,
+etc.) — a backup that lives only on the box it's protecting isn't a backup.
 
 ## Using an external managed database instead of the bundled Postgres
 

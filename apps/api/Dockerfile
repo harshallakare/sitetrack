@@ -32,6 +32,11 @@ RUN pnpm turbo run build --filter=@sitetrack/api...
 # --- runtime: same base image (matching musl engine binary), no dev toolchain ---
 FROM base AS runtime
 ENV NODE_ENV=production
+# pg_dump/pg_restore back the admin panel's database backup/restore feature.
+# postgresql16-client matches the postgres:16-alpine server in
+# docker-compose.prod.yml -- keep these in step if that version ever changes.
+# mysql-client is included for the (unverified/untested) MySQL backup path.
+RUN apk add --no-cache postgresql16-client mysql-client
 WORKDIR /repo
 COPY --from=build /repo ./
 COPY apps/api/docker-entrypoint.sh /repo/docker-entrypoint.sh

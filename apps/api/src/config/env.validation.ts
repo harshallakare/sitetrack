@@ -15,6 +15,10 @@ export const envSchema = z.object({
   // API credentials) at rest -- see SecretCryptoService.
   ENCRYPTION_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/, "ENCRYPTION_KEY must be 64 hex characters (32 bytes)"),
   UPLOADS_DIR: z.string().default("./uploads"),
+  // Where the platform admin's pre-restore safety snapshots land -- never
+  // the on-demand "Download Backup" file itself, which streams straight to
+  // the browser without ever touching disk here.
+  BACKUPS_DIR: z.string().default("./backups"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
 });
 
