@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import argon2 from "argon2";
+import type { CreatePlatformAdminInput } from "@sitetrack/shared-types";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -76,5 +78,28 @@ export class PlatformAdminService {
         _count: { select: { memberships: true } },
       },
     });
+  }
+
+  /**
+   * Creates another dedicated platform-admin account -- same rule as the
+   * create-platform-admin.ts CLI script (which this replaces for day-to-day
+   * use): the email must not already belong to any user, customer or admin,
+   * so admin credentials never overlap with a customer login.
+   */
+  async createAdmin(input: CreatePlatformAdminInput) {
+    const email = input.email.toLowerCase().trim();
+    const existing = await this.prisma.unscoped.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new BadRequestException(
+        "A user with this email already exists. Admin accounts must use a dedicated email, not a customer account."
+      );
+    }
+
+    const passwordHash = await argon2.hash(input.password);
+    const user = await this.prisma.unscoped.user.create({
+      data: { email, name: input.name, passwordHash, isPlatformAdmin: true },
+      select: { id: true, name: true, email: true, isActive: true, isPlatformAdmin: true, createdAt: true },
+    });
+    return user;
   }
 }

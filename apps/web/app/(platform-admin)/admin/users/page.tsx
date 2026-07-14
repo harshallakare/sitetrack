@@ -1,4 +1,5 @@
 import { adminServerFetch as serverFetch } from "@/lib/admin-server-api";
+import { CreateAdminForm } from "./create-admin-form";
 
 interface UserRow {
   id: string;
@@ -15,10 +16,14 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold">Users</h1>
-        <p className="text-sm text-muted-foreground">Every user account on the platform</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Users</h1>
+          <p className="text-sm text-muted-foreground">Every user account on the platform</p>
+        </div>
       </div>
+
+      <CreateAdminForm />
 
       <table className="w-full border-collapse text-sm">
         <thead>

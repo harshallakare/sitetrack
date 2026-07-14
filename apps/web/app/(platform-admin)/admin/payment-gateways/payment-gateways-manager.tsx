@@ -6,6 +6,7 @@ import { CheckCircle2 } from "lucide-react";
 import type { PaymentProviderDescriptor } from "@sitetrack/shared-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { adminClientFetch } from "@/lib/admin-client-api";
 
@@ -142,8 +143,7 @@ function GatewayCard({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>{descriptor.keySecretLabel}</Label>
-          <Input
-            type="password"
+          <PasswordInput
             value={keySecret}
             placeholder={config?.keySecretMasked ? `Saved (${config.keySecretMasked}) — leave blank to keep` : "Not set"}
             onChange={(e) => setKeySecret(e.target.value)}
@@ -152,8 +152,7 @@ function GatewayCard({
         {hasCheckoutDriver && (
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label>Webhook Secret</Label>
-            <Input
-              type="password"
+            <PasswordInput
               value={webhookSecret}
               placeholder={
                 config?.webhookSecretMasked ? `Saved (${config.webhookSecretMasked}) — leave blank to keep` : "Not set"

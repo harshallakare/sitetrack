@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Param, Patch, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from "@nestjs/common";
 import {
+  createPlatformAdminSchema,
   setOrganizationActiveSchema,
   setOrganizationPlanSchema,
+  type CreatePlatformAdminInput,
   type SetOrganizationActiveInput,
   type SetOrganizationPlanInput,
 } from "@sitetrack/shared-types";
@@ -65,5 +67,10 @@ export class PlatformAdminController {
   @Get("users")
   listUsers() {
     return this.platformAdminService.listUsers();
+  }
+
+  @Post("admins")
+  createAdmin(@Body(new ZodValidationPipe(createPlatformAdminSchema)) dto: CreatePlatformAdminInput) {
+    return this.platformAdminService.createAdmin(dto);
   }
 }

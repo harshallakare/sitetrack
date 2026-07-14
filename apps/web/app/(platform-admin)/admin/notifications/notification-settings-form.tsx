@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { adminClientFetch } from "@/lib/admin-client-api";
 
@@ -258,8 +259,7 @@ function SecretField({
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
-      <Input
-        type="password"
+      <PasswordInput
         value={value}
         placeholder={masked ? `Saved (${masked}) — leave blank to keep` : "Not set"}
         onChange={(e) => onChange(e.target.value)}
