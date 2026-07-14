@@ -1,6 +1,7 @@
 import { adminServerFetch as serverFetch } from "@/lib/admin-server-api";
 import { SuspendToggleButton } from "./suspend-toggle-button";
 import { PlanSelector } from "./plan-selector";
+import { AddUserDialog } from "./add-user-dialog";
 
 interface OrganizationRow {
   id: string;
@@ -55,6 +56,7 @@ export default async function AdminOrganizationsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <AddUserDialog organizationId={org.id} />
               <PlanSelector
                 organizationId={org.id}
                 currentSlug={org.subscription?.plan.slug ?? "free"}

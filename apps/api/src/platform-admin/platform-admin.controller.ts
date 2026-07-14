@@ -1,11 +1,17 @@
 import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from "@nestjs/common";
 import {
+  addOrganizationUserSchema,
   createPlatformAdminSchema,
+  resetUserPasswordSchema,
   setOrganizationActiveSchema,
   setOrganizationPlanSchema,
+  updateUserSchema,
+  type AddOrganizationUserInput,
   type CreatePlatformAdminInput,
+  type ResetUserPasswordInput,
   type SetOrganizationActiveInput,
   type SetOrganizationPlanInput,
+  type UpdateUserInput,
 } from "@sitetrack/shared-types";
 import { Public } from "../common/decorators/public.decorator";
 import { AdminJwtAuthGuard } from "../common/guards/admin-jwt-auth.guard";
@@ -56,6 +62,14 @@ export class PlatformAdminController {
     return this.platformAdminService.getOrganization(id);
   }
 
+  @Post("organizations/:id/users")
+  addOrganizationUser(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(addOrganizationUserSchema)) dto: AddOrganizationUserInput
+  ) {
+    return this.platformAdminService.addOrganizationUser(id, dto);
+  }
+
   @Patch("organizations/:id")
   setOrganizationActive(
     @Param("id") id: string,
@@ -72,5 +86,18 @@ export class PlatformAdminController {
   @Post("admins")
   createAdmin(@Body(new ZodValidationPipe(createPlatformAdminSchema)) dto: CreatePlatformAdminInput) {
     return this.platformAdminService.createAdmin(dto);
+  }
+
+  @Patch("users/:id")
+  updateUser(@Param("id") id: string, @Body(new ZodValidationPipe(updateUserSchema)) dto: UpdateUserInput) {
+    return this.platformAdminService.updateUser(id, dto);
+  }
+
+  @Post("users/:id/reset-password")
+  resetUserPassword(
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(resetUserPasswordSchema)) dto: ResetUserPasswordInput
+  ) {
+    return this.platformAdminService.resetUserPassword(id, dto);
   }
 }

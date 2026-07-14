@@ -105,13 +105,18 @@ export class PlansService implements OnModuleInit {
     };
   }
 
-  /** Admin: assign a plan to an org (upgrade/downgrade). */
+  /**
+   * Admin: assign a plan to an org directly (upgrade/downgrade), independent
+   * of Razorpay entirely. Also clears cancelAtPeriodEnd -- an admin override
+   * supersedes any pending self-serve cancellation the org had queued up,
+   * rather than leaving a stale "ends on <date>" banner showing afterward.
+   */
   async setOrganizationPlan(organizationId: string, planSlug: string) {
     const plan = await this.prisma.unscoped.plan.findUnique({ where: { slug: planSlug } });
     if (!plan) throw new NotFoundException("Plan not found");
     await this.prisma.unscoped.subscription.upsert({
       where: { organizationId },
-      update: { planId: plan.id, status: "ACTIVE" },
+      update: { planId: plan.id, status: "ACTIVE", cancelAtPeriodEnd: false },
       create: { organizationId, planId: plan.id, status: "ACTIVE" },
     });
     return this.planForOrganization(organizationId);
