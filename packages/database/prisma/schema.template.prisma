@@ -63,6 +63,11 @@ model Plan {
   maxSites          Int
   priceMonthlyMinor Int      @default(0)
   isActive          Boolean  @default(true)
+  // Recurring-plan id on whichever payment gateway is currently active (see
+  // PaymentGatewayConfig.isActive -- at most one gateway is active at a
+  // time, so a single nullable field is enough rather than a per-gateway
+  // map). Created lazily on first checkout, not at seed time.
+  providerPlanId    String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -70,13 +75,19 @@ model Plan {
 }
 
 // One subscription per organization. Absence implies the free default.
+// status: "ACTIVE" | "PENDING" (created, awaiting the customer's checkout
+// authorization) | "PAST_DUE" | "CANCELLED" | "HALTED". Only "ACTIVE" grants
+// the plan's limits -- see PlansService.planForOrganization.
 model Subscription {
-  id             String   @id @default(cuid())
-  organizationId String   @unique
-  planId         String
-  status         String   @default("ACTIVE")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                     String    @id @default(cuid())
+  organizationId         String    @unique
+  planId                 String
+  status                 String    @default("ACTIVE")
+  // Razorpay (or other gateway) subscription id, once checkout is started.
+  providerSubscriptionId String?   @unique
+  currentPeriodEnd       DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   plan         Plan         @relation(fields: [planId], references: [id])
@@ -518,16 +529,21 @@ model NotificationSettings {
 // provider: "RAZORPAY" | "STRIPE" | "PAYU" | "CASHFREE"
 // mode: "TEST" | "LIVE"
 // One config per provider; at most one isActive across all rows (enforced in
-// the service layer). Config-only for now -- no live charge flow yet.
+// the service layer). Real checkout/webhook flow is wired for RAZORPAY;
+// other providers remain config-only until a driver is built for them.
 model PaymentGatewayConfig {
-  id           String   @id @default(cuid())
-  provider     String   @unique
-  mode         String   @default("TEST")
-  keyId        String
-  keySecretEnc String
-  isActive     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  provider        String   @unique
+  mode            String   @default("TEST")
+  keyId           String
+  keySecretEnc    String
+  // Separate secret Razorpay (etc.) issues for verifying webhook payload
+  // signatures -- distinct from the API key secret. Optional: webhooks can
+  // be configured after the gateway itself is set up.
+  webhookSecretEnc String?
+  isActive        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // Deliverability record for every notification the dispatch service attempts.

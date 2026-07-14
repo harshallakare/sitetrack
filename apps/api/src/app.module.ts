@@ -24,6 +24,7 @@ import { PaymentGatewaysModule } from "./payment-gateways/payment-gateways.modul
 import { BudgetModule } from "./budget/budget.module";
 import { ActivityModule } from "./activity/activity.module";
 import { BillingModule } from "./billing/billing.module";
+import { WebhooksModule } from "./webhooks/webhooks.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { TenantContextGuard } from "./common/guards/tenant-context.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -60,6 +61,7 @@ import { RolesGuard } from "./common/guards/roles.guard";
     BudgetModule,
     ActivityModule,
     BillingModule,
+    WebhooksModule,
   ],
   controllers: [HealthController],
   providers: [

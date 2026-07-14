@@ -27,6 +27,7 @@ export class PaymentGatewaysService {
       mode: row.mode,
       keyId: row.keyId,
       keySecretMasked: this.crypto.mask(row.keySecretEnc),
+      webhookSecretMasked: this.crypto.mask(row.webhookSecretEnc),
       isActive: row.isActive,
       updatedAt: row.updatedAt,
     }));
@@ -51,6 +52,7 @@ export class PaymentGatewaysService {
       mode: input.mode,
       keyId: input.keyId,
       ...(input.keySecret ? { keySecretEnc: this.crypto.encrypt(input.keySecret) } : {}),
+      ...(input.webhookSecret ? { webhookSecretEnc: this.crypto.encrypt(input.webhookSecret) } : {}),
     };
 
     if (existing) {

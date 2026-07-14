@@ -57,6 +57,9 @@ export const upsertPaymentGatewaySchema = z.object({
   keyId: z.string().min(1).max(300),
   // Omit / empty to keep the stored secret unchanged when editing.
   keySecret: z.string().max(500).optional(),
+  // Optional: webhooks can be configured after the gateway itself is set up.
+  // Omit / empty to keep the stored one unchanged when editing.
+  webhookSecret: z.string().max(500).optional(),
 });
 export type UpsertPaymentGatewayInput = z.infer<typeof upsertPaymentGatewaySchema>;
 

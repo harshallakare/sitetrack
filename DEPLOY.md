@@ -15,7 +15,9 @@ needs to be installed on the server itself.
 | `postgres` | no (internal) | Database (swap for a managed Postgres if you prefer) |
 
 `web` proxies every API call server-side, so `api` never needs a public
-port -- one less thing exposed to the internet.
+port -- one less thing exposed to the internet. The one exception is
+`/webhooks/*`, which Caddy routes straight to `api` (see below) since
+there's no browser session to proxy for an inbound gateway webhook.
 
 ## One-time server setup
 
@@ -89,6 +91,31 @@ Options:
 
 The script refuses to `git pull` over uncommitted local changes on the
 server — commit, stash, or discard them first.
+
+## Setting up the paywall (Razorpay)
+
+One site is free per organization; unlocking unlimited sites requires an
+active Razorpay subscription. This is entirely admin-configured in-app, not
+via environment variables:
+
+1. Log in to `/admin/login`, go to **Payment Gateways**, and configure
+   Razorpay: Key ID + Key Secret (from the Razorpay dashboard → Settings →
+   API Keys), then mark it **Active**. Start with TEST mode keys.
+2. In the Razorpay dashboard, add a webhook pointed at
+   `https://<your-domain>/webhooks/razorpay`, subscribed to at least
+   `subscription.activated`, `subscription.charged`, `subscription.pending`,
+   `subscription.halted`, and `subscription.cancelled`. Razorpay shows you a
+   webhook secret when you create it — paste that into the same admin
+   Payment Gateways screen's **Webhook Secret** field.
+3. That's it — a customer's **Billing** page now shows a real "Upgrade to
+   Unlimited" button that opens Razorpay Checkout, and the webhook keeps
+   their subscription status in sync (a failed renewal correctly drops them
+   back to the Free plan's 1-site limit, not just at signup).
+
+Switching a gateway from TEST to LIVE mode, or rotating keys, takes effect
+immediately for new checkouts — no rebuild or restart needed (unlike
+`DATABASE_PROVIDER`, gateway credentials are read from the database at
+request time).
 
 ## Day-to-day operations
 

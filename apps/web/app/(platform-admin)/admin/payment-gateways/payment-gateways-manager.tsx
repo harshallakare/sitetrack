@@ -15,6 +15,7 @@ export interface GatewayConfig {
   mode: "TEST" | "LIVE";
   keyId: string;
   keySecretMasked: string | null;
+  webhookSecretMasked: string | null;
   isActive: boolean;
   updatedAt: string;
 }
@@ -52,8 +53,17 @@ function GatewayCard({
   const [mode, setMode] = React.useState<"TEST" | "LIVE">(config?.mode ?? "TEST");
   const [keyId, setKeyId] = React.useState(config?.keyId ?? "");
   const [keySecret, setKeySecret] = React.useState("");
+  const [webhookSecret, setWebhookSecret] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [webhookUrl, setWebhookUrl] = React.useState("");
+  // Only Razorpay has a working checkout + webhook handler today; other
+  // providers stay config-only until a driver is built for them.
+  const hasCheckoutDriver = descriptor.provider === "RAZORPAY";
+
+  React.useEffect(() => {
+    if (hasCheckoutDriver) setWebhookUrl(`${window.location.origin}/webhooks/razorpay`);
+  }, [hasCheckoutDriver]);
 
   const configured = !!config;
 
@@ -63,9 +73,16 @@ function GatewayCard({
     try {
       await adminClientFetch("/admin/payment-gateways", {
         method: "PUT",
-        body: JSON.stringify({ provider: descriptor.provider, mode, keyId, keySecret: keySecret || undefined }),
+        body: JSON.stringify({
+          provider: descriptor.provider,
+          mode,
+          keyId,
+          keySecret: keySecret || undefined,
+          webhookSecret: webhookSecret || undefined,
+        }),
       });
       setKeySecret("");
+      setWebhookSecret("");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -132,7 +149,30 @@ function GatewayCard({
             onChange={(e) => setKeySecret(e.target.value)}
           />
         </div>
+        {hasCheckoutDriver && (
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label>Webhook Secret</Label>
+            <Input
+              type="password"
+              value={webhookSecret}
+              placeholder={
+                config?.webhookSecretMasked ? `Saved (${config.webhookSecretMasked}) — leave blank to keep` : "Not set"
+              }
+              onChange={(e) => setWebhookSecret(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              From the webhook you create in the {descriptor.label} dashboard, pointed at:{" "}
+              <code className="rounded bg-muted px-1 py-0.5">{webhookUrl}</code>
+            </p>
+          </div>
+        )}
       </div>
+
+      {!hasCheckoutDriver && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Config only for now — self-serve checkout isn&apos;t wired up for {descriptor.label} yet.
+        </p>
+      )}
 
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
 

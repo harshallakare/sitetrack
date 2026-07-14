@@ -11,7 +11,10 @@ import { AppModule } from "./app.module";
 // any class-validator-decorated DTOs would silently strip request bodies
 // down to {} whenever `whitelist: true` is set.
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: true });
+  // rawBody: true preserves the exact request bytes on req.rawBody -- needed
+  // to verify the Razorpay webhook's HMAC signature, which is computed over
+  // the raw payload and would mismatch if Express's JSON parser re-serialized it.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { cors: true, rawBody: true });
 
   // Standard security headers, incl. X-Content-Type-Options: nosniff (matters
   // for the attachment download route, which serves user-uploaded content).
