@@ -3,7 +3,12 @@
 # repo. Idempotent-ish: safe to re-run, but scripts/update.sh is the normal
 # path for every deploy after the first one.
 #
-# Usage: ./scripts/deploy.sh
+# Usage:
+#   ./scripts/deploy.sh              # web+api only, on 127.0.0.1 -- bring
+#                                     # your own reverse proxy (nginx, etc.)
+#   ./scripts/deploy.sh --with-caddy # also start the bundled Caddy for
+#                                     # automatic public HTTPS (needs 80/443
+#                                     # free -- see DEPLOY.md)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,6 +16,14 @@ cd "$ROOT_DIR"
 
 COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.production"
+PROFILE_ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --with-caddy) PROFILE_ARGS=(--profile caddy) ;;
+    *) echo "[deploy] unknown flag: $arg" >&2; exit 1 ;;
+  esac
+done
 
 log() { echo "[deploy] $*"; }
 die() { echo "[deploy] ERROR: $*" >&2; exit 1; }
@@ -33,11 +46,11 @@ fi
 
 # --- 3. Build images ---
 log "Building images (this generates the Prisma client for DATABASE_PROVIDER=$(grep -m1 '^DATABASE_PROVIDER=' "$ENV_FILE" | cut -d= -f2))..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" build
 
 # --- 4. Start the stack ---
-log "Starting the stack (postgres -> api [runs migrations] -> web -> caddy)..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+log "Starting the stack (api [runs migrations] -> web${PROFILE_ARGS[*]:+ -> caddy})..."
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" up -d
 
 log "Waiting for the API to come up..."
 for i in $(seq 1 30); do
@@ -52,9 +65,16 @@ for i in $(seq 1 30); do
 done
 
 log "Deployed. Status:"
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" ps
 
-DOMAIN_VAL="$(grep -m1 '^DOMAIN=' "$ENV_FILE" | cut -d= -f2)"
-log "Visit http://${DOMAIN_VAL:-localhost} (https:// automatically if DOMAIN is a real domain with DNS pointed here)."
+if [ -n "${PROFILE_ARGS[*]:-}" ]; then
+  DOMAIN_VAL="$(grep -m1 '^DOMAIN=' "$ENV_FILE" | cut -d= -f2)"
+  log "Visit http://${DOMAIN_VAL:-localhost} (https:// automatically if DOMAIN is a real domain with DNS pointed here)."
+else
+  WEB_PORT_VAL="$(grep -m1 '^WEB_HOST_BIND_PORT=' "$ENV_FILE" | cut -d= -f2)"
+  API_PORT_VAL="$(grep -m1 '^API_HOST_BIND_PORT=' "$ENV_FILE" | cut -d= -f2)"
+  log "web is listening on 127.0.0.1:${WEB_PORT_VAL:-3000}, api on 127.0.0.1:${API_PORT_VAL:-4000} (/webhooks/* only)."
+  log "Point your existing reverse proxy at those -- see 'Running alongside an existing site' in DEPLOY.md."
+fi
 log "Logs:   docker compose -f $COMPOSE_FILE logs -f"
 log "Update: ./scripts/update.sh"

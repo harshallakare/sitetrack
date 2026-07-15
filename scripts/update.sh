@@ -7,6 +7,8 @@
 # Usage:
 #   ./scripts/update.sh              # git pull + rebuild + redeploy
 #   ./scripts/update.sh --no-pull     # rebuild + redeploy from the current checkout
+#   ./scripts/update.sh --with-caddy  # also (re)start the bundled Caddy --
+#                                     # pass this if your first deploy.sh used it
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,10 +17,12 @@ cd "$ROOT_DIR"
 COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.production"
 DO_PULL=1
+PROFILE_ARGS=()
 
 for arg in "$@"; do
   case "$arg" in
     --no-pull) DO_PULL=0 ;;
+    --with-caddy) PROFILE_ARGS=(--profile caddy) ;;
     *) echo "[update] unknown flag: $arg" >&2; exit 1 ;;
   esac
 done
@@ -40,16 +44,16 @@ if [ "$DO_PULL" -eq 1 ]; then
 fi
 
 log "Rebuilding changed images..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" build
 
 log "Recreating containers (only ones with a changed image are restarted)..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --remove-orphans
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" up -d --remove-orphans
 
 log "Pruning dangling images from the previous build..."
 docker image prune -f >/dev/null
 
 log "Status:"
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" ps
 
 log "Recent API logs:"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=20 api

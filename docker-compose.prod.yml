@@ -1,53 +1,43 @@
 # Production deployment stack -- works on any Linux server with Docker +
 # the Docker Compose plugin installed. Nothing else is required (no Node,
-# no pnpm, no Postgres client) on the host itself.
+# no pnpm, no Postgres/MySQL client) on the host itself.
 #
-# Only `web` and `caddy` are internet-facing. The Next.js app proxies every
-# API call server-side (apps/web/app/api/proxy/**), so `api` never needs a
-# public port -- it's reachable only on the internal Docker network.
+# `web` and `api` are published to 127.0.0.1 only -- not reachable from
+# outside this server on their own. Either:
+#   (a) use the bundled `caddy` service for automatic public HTTPS (opt in
+#       with `docker compose --profile caddy ... up -d`), or
+#   (b) point your own existing nginx/Caddy/etc. at 127.0.0.1:3000 (web) and
+#       127.0.0.1:4000 (api, for /webhooks/* only -- see Caddyfile for why).
+# See "Running alongside an existing site" in DEPLOY.md for (b).
+#
+# Uses SQLite by default (see DATABASE_PROVIDER/DATABASE_URL in
+# .env.production.example) -- the `sqlite_data` volume below persists the
+# database file across container recreation. Fine for a single small
+# deployment; see "Using Postgres or MySQL instead of SQLite" in DEPLOY.md
+# if you need real concurrent-write support.
 #
 # Usage: see scripts/deploy.sh and scripts/update.sh, or DEPLOY.md.
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sitetrack}
-      POSTGRES_USER: ${POSTGRES_USER:-sitetrack}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in .env.production}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sitetrack}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    # Point DATABASE_URL in .env.production at a managed Postgres instead
-    # (RDS, Supabase, Neon, etc.) and remove this service if you don't want
-    # to run the database in-container.
-
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
       args:
-        DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
+        DATABASE_PROVIDER: ${DATABASE_PROVIDER:-sqlite}
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     env_file:
       - .env.production
     environment:
-      DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
+      DATABASE_PROVIDER: ${DATABASE_PROVIDER:-sqlite}
     volumes:
       - api_uploads:/repo/apps/api/uploads
       - api_backups:/repo/apps/api/backups
-    expose:
-      - "4000"
-    # No `ports:` -- deliberately not published to the host. Debug with
-    # `docker compose -f docker-compose.prod.yml exec api sh` if needed.
+      - sqlite_data:/repo/packages/database/prisma/data
+    ports:
+      # Loopback-only -- lets an existing host reverse proxy reach /webhooks/*
+      # directly (see Caddyfile). Not reachable from outside this server.
+      - "127.0.0.1:${API_HOST_BIND_PORT:-4000}:4000"
 
   web:
     build:
@@ -58,11 +48,17 @@ services:
       - api
     env_file:
       - .env.production
-    expose:
-      - "3000"
+    ports:
+      # Loopback-only -- point your existing reverse proxy here, or use the
+      # bundled `caddy` service instead (see note at the top of this file).
+      - "127.0.0.1:${WEB_HOST_BIND_PORT:-3000}:3000"
 
+  # Opt-in automatic-HTTPS reverse proxy. Skipped by default (only starts
+  # with `docker compose --profile caddy ... up -d`) since most servers
+  # either use this or an existing reverse proxy, not both.
   caddy:
     image: caddy:2-alpine
+    profiles: ["caddy"]
     restart: unless-stopped
     ports:
       # Override in .env.production if 80/443 are already taken by another
@@ -81,11 +77,13 @@ services:
       - web
 
 volumes:
-  postgres_data:
   api_uploads:
   # Pre-restore safety snapshots written by the admin panel's Database page
   # (see apps/api/src/platform-admin/database-backup.service.ts) -- survives
   # container recreation so a bad restore stays recoverable.
   api_backups:
+  # SQLite database file (DATABASE_PROVIDER=sqlite, the default) -- survives
+  # container recreation. Unused/empty if you switch to Postgres or MySQL.
+  sqlite_data:
   caddy_data:
   caddy_config:
