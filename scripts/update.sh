@@ -19,11 +19,37 @@ ENV_FILE=".env.production"
 DO_PULL=1
 PROFILE_ARGS=()
 
+print_help() {
+  cat <<'HELP'
+Usage: ./scripts/update.sh [options]
+
+Pulls the latest code, rebuilds only what changed, and recreates
+containers -- the normal path for every deploy after the first
+(./scripts/deploy.sh). Migrations run automatically on api startup, so
+schema changes ship with no extra step.
+
+Options:
+  --no-pull      Rebuild/redeploy from the current checkout without
+                 touching git (useful if you deployed a specific commit or
+                 tag by hand).
+  --with-caddy   Also (re)start the bundled Caddy service -- pass this if
+                 your first ./scripts/deploy.sh used it.
+  -h, --help     Show this help and exit.
+
+Examples:
+  ./scripts/update.sh                        # git pull + rebuild + redeploy
+  ./scripts/update.sh --no-pull               # rebuild from current checkout
+  ./scripts/update.sh --with-caddy            # keep Caddy running too
+  ./scripts/update.sh --no-pull --with-caddy  # combine flags freely
+HELP
+}
+
 for arg in "$@"; do
   case "$arg" in
     --no-pull) DO_PULL=0 ;;
     --with-caddy) PROFILE_ARGS=(--profile caddy) ;;
-    *) echo "[update] unknown flag: $arg" >&2; exit 1 ;;
+    -h|--help) print_help; exit 0 ;;
+    *) echo "[update] unknown flag: $arg" >&2; print_help >&2; exit 1 ;;
   esac
 done
 

@@ -18,10 +18,33 @@ COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.production"
 PROFILE_ARGS=()
 
+print_help() {
+  cat <<'HELP'
+Usage: ./scripts/deploy.sh [options]
+
+First-time production deploy. Run this ON THE SERVER, from a clone of this
+repo. Builds the api/web images, starts api (runs migrations) -> web, and
+prints where to point a reverse proxy. Safe to re-run; scripts/update.sh is
+the normal path for every deploy after the first one.
+
+Options:
+  --with-caddy   Also start the bundled Caddy service for automatic public
+                 HTTPS. Needs ports 80/443 free on this server. Omit this if
+                 you already have your own nginx/Caddy/etc. in front (see
+                 "Running alongside an existing site" in DEPLOY.md).
+  -h, --help     Show this help and exit.
+
+Examples:
+  ./scripts/deploy.sh              # web+api on 127.0.0.1, bring your own proxy
+  ./scripts/deploy.sh --with-caddy # also start Caddy (no existing proxy)
+HELP
+}
+
 for arg in "$@"; do
   case "$arg" in
     --with-caddy) PROFILE_ARGS=(--profile caddy) ;;
-    *) echo "[deploy] unknown flag: $arg" >&2; exit 1 ;;
+    -h|--help) print_help; exit 0 ;;
+    *) echo "[deploy] unknown flag: $arg" >&2; print_help >&2; exit 1 ;;
   esac
 done
 
