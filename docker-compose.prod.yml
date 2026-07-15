@@ -65,8 +65,12 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      # Override in .env.production if 80/443 are already taken by another
+      # site on this server -- e.g. CADDY_HTTP_BIND=127.0.0.1:8080 to keep
+      # SiteTrack internal-only and let an existing reverse proxy forward to
+      # it. See "Running alongside an existing site" in DEPLOY.md.
+      - "${CADDY_HTTP_BIND:-80}:80"
+      - "${CADDY_HTTPS_BIND:-443}:443"
     environment:
       DOMAIN: ${DOMAIN:-localhost}
     volumes:

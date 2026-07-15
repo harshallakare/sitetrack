@@ -195,6 +195,49 @@ If you use it, mount a volume for the `.db` file so it survives container
 recreation (add one under `packages/database/prisma/` in the compose file)
 and drop the `postgres` service entirely.
 
+## Running alongside an existing site on the same server
+
+By default `caddy` binds host ports 80 and 443 directly, which will fail to
+start (or fight for the port) if another web server or reverse proxy is
+already using them. If you already have nginx, Apache, or another Caddy
+instance fronting other sites on this box, keep SiteTrack's `caddy`
+internal-only and let your existing proxy forward to it instead:
+
+1. In `.env.production`, add:
+   ```
+   CADDY_HTTP_BIND=127.0.0.1:8080
+   CADDY_HTTPS_BIND=127.0.0.1:8443
+   DOMAIN=localhost
+   ```
+   `DOMAIN=localhost` stops Caddy from attempting its own Let's Encrypt
+   certificate — TLS for your real domain is handled by the existing proxy
+   in front, not by SiteTrack's `caddy`. Only `127.0.0.1:8080` needs to
+   actually work; the `8443` binding just needs to not collide with anything.
+
+2. Point your existing proxy at `127.0.0.1:8080` for whichever
+   domain/subdomain you want SiteTrack on. For **nginx**:
+   ```nginx
+   server {
+       listen 443 ssl;
+       server_name app.yourdomain.com;
+       # ... your existing ssl_certificate lines ...
+       location / {
+           proxy_pass http://127.0.0.1:8080;
+           proxy_set_header Host $host;
+           proxy_set_header X-Forwarded-Proto $scheme;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       }
+   }
+   ```
+   For an existing **Caddy** instance, add a new site block:
+   ```
+   app.yourdomain.com {
+       reverse_proxy 127.0.0.1:8080
+   }
+   ```
+3. Reload the existing proxy (`nginx -s reload` / `systemctl reload caddy`,
+   as appropriate), then `./scripts/deploy.sh` (or `update.sh`) as usual.
+
 ## Troubleshooting
 
 - **`api` won't start / migrations fail**: `docker compose -f docker-compose.prod.yml logs api`.
@@ -203,6 +246,9 @@ and drop the `postgres` service entirely.
 - **Certificate not issuing**: Caddy needs port 80 and 443 reachable from the
   internet and `DOMAIN`'s DNS already pointed at this server *before* first
   start. Check `docker compose -f docker-compose.prod.yml logs caddy`.
+- **`caddy` fails to start / "address already in use"**: something else on
+  this server already owns port 80 or 443 — see "Running alongside an
+  existing site" above.
 - **Admin panel unreachable**: it's a separate route (`/admin/login`) and
   separate cookies from the customer app — confirm you're hitting the right
   path, and that you ran the `db:create-admin` step above.
