@@ -9,20 +9,19 @@ needs to be installed on the server itself.
 
 | Service | Public? | Purpose |
 |---------|---------|---------|
-| `web`   | 127.0.0.1 only | Next.js app -- the only thing browsers ever talk to |
-| `api`   | 127.0.0.1 only | NestJS API -- reached by `web` over the Docker network, plus `/webhooks/*` directly |
+| `app`   | 127.0.0.1 only | One container running both the Next.js app (port 3000) and the NestJS API (port 4000) -- see `Dockerfile`/`docker-entrypoint.sh` |
 | `caddy` | opt-in, yes (80/443) | Automatic-HTTPS reverse proxy -- only starts with `--with-caddy` |
 
-`web` proxies every API call server-side, so `api` doesn't need to be public
-for the app to work -- the one exception is `/webhooks/*` (inbound payment
-gateway webhooks), which has no browser session to proxy through, so it's
-reached directly instead.
+The Next.js side proxies every API call server-side, so the API's port
+doesn't need to be public for the app to work -- the one exception is
+`/webhooks/*` (inbound payment gateway webhooks), which has no browser
+session to proxy through, so it's reached directly on port 4000 instead.
 
 By default nothing is published beyond `127.0.0.1` — you point your own
-existing reverse proxy (nginx, Caddy, etc.) at `web`/`api`, see "Running
-alongside an existing site" below. No existing reverse proxy on this server?
-Pass `--with-caddy` to `deploy.sh`/`update.sh` to use the bundled Caddy
-service for automatic HTTPS instead (needs ports 80/443 free).
+existing reverse proxy (nginx, Caddy, etc.) at `app`'s two ports, see
+"Running alongside an existing site" below. No existing reverse proxy on
+this server? Pass `--with-caddy` to `deploy.sh`/`update.sh` to use the
+bundled Caddy service for automatic HTTPS instead (needs ports 80/443 free).
 
 Uses SQLite by default — no separate database service, no setup. See "Using
 Postgres or MySQL instead of SQLite" below if more than one person will be
@@ -66,12 +65,12 @@ using the app at the same time (SQLite has no real concurrent-write story).
 ## First deploy
 
 ```bash
-./scripts/deploy.sh                # web + api on 127.0.0.1, bring your own proxy
+./scripts/deploy.sh                # app on 127.0.0.1, bring your own proxy
 ./scripts/deploy.sh --with-caddy   # also start the bundled Caddy
 ```
 
-This builds the `api`/`web` images, starts `api` (which runs `prisma migrate
-deploy` automatically on boot) → `web` (→ `caddy`, if `--with-caddy`), and
+This builds the single `app` image, starts it (runs `prisma migrate deploy`,
+then both the API and the Next.js app) → `caddy` if `--with-caddy`, and
 prints where to point your reverse proxy (or the URL to visit, if using
 Caddy). It refuses to run if `.env.production` still has placeholder
 `change-me` values.
@@ -79,7 +78,7 @@ Caddy). It refuses to run if `.env.production` still has placeholder
 Once it's up, create your first platform admin (the admin panel has its own
 separate login and cannot be reached via normal signup):
 ```bash
-docker compose -f docker-compose.prod.yml exec api \
+docker compose -f docker-compose.prod.yml exec app \
   pnpm --filter @sitetrack/database db:create-admin admin@yourdomain.com "a-strong-password" "Your Name"
 ```
 (no `--` before the arguments — pnpm passes it through literally instead of stripping it, which would create a broken account with `--` as the email)
@@ -93,7 +92,7 @@ Then log in at `/admin/login` on whatever domain you pointed at SiteTrack.
 ```
 
 Pulls the latest `main`, rebuilds only the images that changed, and
-recreates those containers. Database migrations run automatically on `api`
+recreates those containers. Database migrations run automatically on `app`
 startup — no separate migration step needed, and it's a no-op if there's
 nothing new to apply.
 
@@ -137,13 +136,13 @@ request time).
 ```bash
 # Tail logs
 docker compose -f docker-compose.prod.yml logs -f
-docker compose -f docker-compose.prod.yml logs -f api    # one service
+docker compose -f docker-compose.prod.yml logs -f app    # one service
 
 # Status
 docker compose -f docker-compose.prod.yml ps
 
-# Shell into a container
-docker compose -f docker-compose.prod.yml exec api sh
+# Shell into the container
+docker compose -f docker-compose.prod.yml exec app sh
 
 # Stop everything (data volumes survive)
 docker compose -f docker-compose.prod.yml down
@@ -168,14 +167,14 @@ before touching anything, and automatically writes a safety snapshot of the
 *current* state (to the `api_backups` volume) immediately before
 overwriting it — so a bad restore is itself recoverable. This is genuinely
 destructive: it replaces the **entire** database for every organization on
-this deployment, not just one. Restart the api container after a restore
-(`docker compose -f docker-compose.prod.yml restart api`) so it reconnects
+this deployment, not just one. Restart the app container after a restore
+(`docker compose -f docker-compose.prod.yml restart app`) so it reconnects
 cleanly.
 
 **From the command line**, for SQLite you can just copy the file out of the
 volume:
 ```bash
-docker compose -f docker-compose.prod.yml cp api:/repo/packages/database/prisma/data/prod.db ./backup-$(date +%F).db
+docker compose -f docker-compose.prod.yml cp app:/repo/packages/database/prisma/data/prod.db ./backup-$(date +%F).db
 ```
 If you switched to Postgres, the equivalent is:
 ```bash
@@ -209,7 +208,7 @@ story — switch once more than one person is using the app at the same time.
          timeout: 5s
          retries: 20
    ```
-   and add `postgres_data:` under the top-level `volumes:`. Give `api` a
+   and add `postgres_data:` under the top-level `volumes:`. Give `app` a
    `depends_on: { postgres: { condition: service_healthy } }` so it waits for
    Postgres to be ready. Prefer a managed database (RDS, Supabase, Neon,
    Azure Database for PostgreSQL, ...) instead? Skip the service block
@@ -217,7 +216,7 @@ story — switch once more than one person is using the app at the same time.
 2. In `.env.production`, set `DATABASE_PROVIDER=postgresql` (or `mysql`) and
    the matching `DATABASE_URL`, e.g.
    `postgresql://sitetrack:<password>@postgres:5432/sitetrack`.
-3. Rebuild and redeploy — the provider is baked into the `api` image at
+3. Rebuild and redeploy — the provider is baked into the `app` image at
    build time, not read at runtime:
    ```bash
    ./scripts/update.sh --no-pull
@@ -226,17 +225,17 @@ story — switch once more than one person is using the app at the same time.
 ## Running alongside an existing site on the same server
 
 This is the default — plain `./scripts/deploy.sh` (no `--with-caddy`) never
-touches ports 80/443 at all; `web` and `api` only bind to `127.0.0.1`. If you
-already have nginx, Apache, or a Caddy instance fronting other sites on this
-box, just point it at SiteTrack:
+touches ports 80/443 at all; `app` only binds to `127.0.0.1`. If you already
+have nginx, Apache, or a Caddy instance fronting other sites on this box,
+just point it at SiteTrack:
 
 1. Leave `DOMAIN=localhost` in `.env.production` — your existing proxy
    handles TLS for your real domain, not SiteTrack.
 
 2. Point your existing proxy at `127.0.0.1:3000` (everything) and
    `127.0.0.1:4000` (for `/webhooks/*` only — inbound payment gateway
-   webhooks have no browser session to proxy through, so they bypass `web`).
-   For **nginx**:
+   webhooks have no browser session to proxy through, so they bypass the
+   Next.js app and go straight to the API). For **nginx**:
    ```nginx
    server {
        listen 443 ssl;
@@ -277,7 +276,7 @@ API_HOST_BIND_PORT=4001
 
 ## Troubleshooting
 
-- **`api` won't start / migrations fail**: `docker compose -f docker-compose.prod.yml logs api`.
+- **`app` won't start / migrations fail**: `docker compose -f docker-compose.prod.yml logs app`.
   Most often a wrong `DATABASE_URL`.
 - **Certificate not issuing** (only relevant with `--with-caddy`): Caddy
   needs port 80 and 443 reachable from the internet and `DOMAIN`'s DNS

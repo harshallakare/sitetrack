@@ -4,8 +4,8 @@
 # path for every deploy after the first one.
 #
 # Usage:
-#   ./scripts/deploy.sh              # web+api only, on 127.0.0.1 -- bring
-#                                     # your own reverse proxy (nginx, etc.)
+#   ./scripts/deploy.sh              # single `app` container on 127.0.0.1
+#                                     # -- bring your own reverse proxy (nginx, etc.)
 #   ./scripts/deploy.sh --with-caddy # also start the bundled Caddy for
 #                                     # automatic public HTTPS (needs 80/443
 #                                     # free -- see DEPLOY.md)
@@ -23,9 +23,10 @@ print_help() {
 Usage: ./scripts/deploy.sh [options]
 
 First-time production deploy. Run this ON THE SERVER, from a clone of this
-repo. Builds the api/web images, starts api (runs migrations) -> web, and
-prints where to point a reverse proxy. Safe to re-run; scripts/update.sh is
-the normal path for every deploy after the first one.
+repo. Builds the single `app` image (runs both api and web in one
+container, migrations included) and prints where to point a reverse proxy.
+Safe to re-run; scripts/update.sh is the normal path for every deploy after
+the first one.
 
 Options:
   --with-caddy   Also start the bundled Caddy service for automatic public
@@ -35,7 +36,7 @@ Options:
   -h, --help     Show this help and exit.
 
 Examples:
-  ./scripts/deploy.sh              # web+api on 127.0.0.1, bring your own proxy
+  ./scripts/deploy.sh              # app on 127.0.0.1, bring your own proxy
   ./scripts/deploy.sh --with-caddy # also start Caddy (no existing proxy)
 HELP
 }
@@ -72,18 +73,18 @@ log "Building images (this generates the Prisma client for DATABASE_PROVIDER=$(g
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" build
 
 # --- 4. Start the stack ---
-log "Starting the stack (api [runs migrations] -> web${PROFILE_ARGS[*]:+ -> caddy})..."
+log "Starting the stack (app [runs migrations, then api + web]${PROFILE_ARGS[*]:+ -> caddy})..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" up -d
 
-log "Waiting for the API to come up..."
+log "Waiting for the app to come up..."
 for i in $(seq 1 30); do
-  if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs api 2>/dev/null | grep -q "listening on"; then
-    log "API is up."
+  if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs app 2>/dev/null | grep -q "listening on"; then
+    log "App is up."
     break
   fi
   sleep 2
   if [ "$i" -eq 30 ]; then
-    log "API didn't report ready in time -- check logs: docker compose -f $COMPOSE_FILE logs api"
+    log "App didn't report ready in time -- check logs: docker compose -f $COMPOSE_FILE logs app"
   fi
 done
 

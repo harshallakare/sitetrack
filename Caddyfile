@@ -8,16 +8,17 @@
 # test on a server without DNS set up yet.
 
 {$DOMAIN:localhost} {
-	# Gateway webhooks (Razorpay, etc.) go straight to the api container,
+	# Gateway webhooks (Razorpay, etc.) go straight to the api process (both
+	# api and web run in the single `app` container -- see Dockerfile),
 	# bypassing the Next.js proxy -- there's no logged-in session to proxy
 	# through, and the route authenticates itself via signature, not cookies.
 	# Paste https://<your-domain>/webhooks/razorpay into the Razorpay dashboard.
 	handle /webhooks/* {
-		reverse_proxy api:4000
+		reverse_proxy app:4000
 	}
 
 	handle {
-		reverse_proxy web:3000
+		reverse_proxy app:3000
 	}
 
 	encode gzip

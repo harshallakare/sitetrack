@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Pulls the latest code, rebuilds only what changed, and recreates
 # containers -- the normal path for every deploy after the first
-# (./scripts/deploy.sh). Migrations run automatically on api startup
-# (apps/api/docker-entrypoint.sh), so schema changes ship with no extra step.
+# (./scripts/deploy.sh). Migrations run automatically on app container
+# startup (docker-entrypoint.sh), so schema changes ship with no extra step.
 #
 # Usage:
 #   ./scripts/update.sh              # git pull + rebuild + redeploy
@@ -25,7 +25,7 @@ Usage: ./scripts/update.sh [options]
 
 Pulls the latest code, rebuilds only what changed, and recreates
 containers -- the normal path for every deploy after the first
-(./scripts/deploy.sh). Migrations run automatically on api startup, so
+(./scripts/deploy.sh). Migrations run automatically on app startup, so
 schema changes ship with no extra step.
 
 Options:
@@ -81,5 +81,5 @@ docker image prune -f >/dev/null
 log "Status:"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" ps
 
-log "Recent API logs:"
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=20 api
+log "Recent app logs:"
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=20 app

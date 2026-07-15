@@ -2,8 +2,9 @@
 # the Docker Compose plugin installed. Nothing else is required (no Node,
 # no pnpm, no Postgres/MySQL client) on the host itself.
 #
-# `web` and `api` are published to 127.0.0.1 only -- not reachable from
-# outside this server on their own. Either:
+# `app` is one container running both apps/api and apps/web (see Dockerfile
+# and docker-entrypoint.sh) -- published to 127.0.0.1 only, not reachable
+# from outside this server on its own. Either:
 #   (a) use the bundled `caddy` service for automatic public HTTPS (opt in
 #       with `docker compose --profile caddy ... up -d`), or
 #   (b) point your own existing nginx/Caddy/etc. at 127.0.0.1:3000 (web) and
@@ -19,10 +20,10 @@
 # Usage: see scripts/deploy.sh and scripts/update.sh, or DEPLOY.md.
 
 services:
-  api:
+  app:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: Dockerfile
       args:
         DATABASE_PROVIDER: ${DATABASE_PROVIDER:-sqlite}
     restart: unless-stopped
@@ -35,23 +36,11 @@ services:
       - api_backups:/repo/apps/api/backups
       - sqlite_data:/repo/packages/database/prisma/data
     ports:
-      # Loopback-only -- lets an existing host reverse proxy reach /webhooks/*
-      # directly (see Caddyfile). Not reachable from outside this server.
-      - "127.0.0.1:${API_HOST_BIND_PORT:-4000}:4000"
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    restart: unless-stopped
-    depends_on:
-      - api
-    env_file:
-      - .env.production
-    ports:
-      # Loopback-only -- point your existing reverse proxy here, or use the
-      # bundled `caddy` service instead (see note at the top of this file).
+      # Loopback-only -- point your existing reverse proxy here (web on
+      # 3000, api on 4000 for /webhooks/* only), or use the bundled `caddy`
+      # service instead (see note at the top of this file).
       - "127.0.0.1:${WEB_HOST_BIND_PORT:-3000}:3000"
+      - "127.0.0.1:${API_HOST_BIND_PORT:-4000}:4000"
 
   # Opt-in automatic-HTTPS reverse proxy. Skipped by default (only starts
   # with `docker compose --profile caddy ... up -d`) since most servers
@@ -74,7 +63,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - web
+      - app
 
 volumes:
   api_uploads:
