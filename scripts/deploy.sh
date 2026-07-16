@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # First-time production deploy. Run this ON THE SERVER, from a clone of this
-# repo. Fully interactive on a real terminal -- no file editing required:
-# it generates secrets itself and asks only for the couple of things it
-# can't know (domain, admin login, proxy network name). Idempotent-ish:
-# safe to re-run, but scripts/update.sh is the normal path for every deploy
-# after the first one.
+# repo. Fully interactive on a real terminal -- no file editing required: it
+# asks how this will be reached from the internet (host-native reverse
+# proxy / containerized reverse proxy / bundled Caddy), then generates
+# secrets itself and asks only for the couple of remaining things it can't
+# know (domain, proxy network name, admin login). Idempotent-ish: safe to
+# re-run, but scripts/update.sh is the normal path for every deploy after
+# the first one.
+#
+# The three flags below skip that opening question (useful for scripting/
+# re-running non-interactively) -- otherwise just run it bare and answer
+# the prompt.
 #
 # Usage:
 #   ./scripts/deploy.sh                    # single `app` container on
@@ -121,6 +127,23 @@ ask() {
 # --- 1. Prerequisites ---
 command -v docker >/dev/null 2>&1 || die "docker is not installed. Install Docker Engine first: https://docs.docker.com/engine/install/"
 docker compose version >/dev/null 2>&1 || die "docker compose plugin not found (need 'docker compose', not the old standalone 'docker-compose')."
+
+# --- 1b. How this gets reached from the internet (skipped if you already
+# passed --with-caddy/--proxy-network, or not running on a real terminal --
+# in which case the default is: bring your own host-native reverse proxy) ---
+if [ "$INTERACTIVE" -eq 1 ] && [ -z "${PROFILE_ARGS[*]:-}" ] && [ "$USE_PROXY_NETWORK" -eq 0 ]; then
+  echo "[deploy] How will this be reached from the internet?"
+  echo "  1) I already have a reverse proxy running directly on THIS HOST (nginx, Caddy, etc.)"
+  echo "  2) I already have a reverse proxy running in ITS OWN DOCKER CONTAINER (Nginx Proxy Manager, etc.)"
+  echo "  3) I don't have one yet -- use the bundled Caddy here for automatic HTTPS"
+  read -r -p "[deploy] Choose [1/2/3, default 1]: " TOPOLOGY_CHOICE || true
+  case "${TOPOLOGY_CHOICE:-1}" in
+    2) USE_PROXY_NETWORK=1 ;;
+    3) PROFILE_ARGS=(--profile caddy) ;;
+    *) : ;; # 1 (or anything else) -- plain host-proxy mode, nothing to set
+  esac
+  echo
+fi
 
 # --- 2. Env file: create/complete it automatically, no manual editing ---
 if [ ! -f "$ENV_FILE" ]; then

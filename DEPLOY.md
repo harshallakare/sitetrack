@@ -58,16 +58,24 @@ using the app at the same time (SQLite has no real concurrent-write story).
 ./scripts/deploy.sh --with-caddy   # also start the bundled Caddy
 ```
 
-Run on a real terminal, this is fully interactive: on first run it creates
-`.env.production`, generates `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`/
-`JWT_ADMIN_SECRET`/`ENCRYPTION_KEY` itself (never reused across each other —
-the admin panel's whole security model depends on that separation), and
-asks for your domain only if you passed `--with-caddy` (otherwise it stays
-`localhost`, since your own reverse proxy handles the real domain). It then
-builds the single `app` image and starts it (runs `prisma migrate deploy`,
-then both the API and the Next.js app) → `caddy` if `--with-caddy`, and
-prints where to point your reverse proxy (or the URL to visit, if using
-Caddy).
+Run on a real terminal without any flags, it first asks how this will be
+reached from the internet:
+1. an existing reverse proxy already running directly on **this host**
+   (nginx, Caddy, etc.) — the default, nothing further to answer here
+2. an existing reverse proxy running in **its own Docker container**
+   (Nginx Proxy Manager, a dockerized nginx/Caddy, etc.) — asks for that
+   container's Docker network name (`docker network ls` to find it)
+3. no reverse proxy yet — starts the bundled Caddy, and asks for your real
+   domain for automatic HTTPS
+
+(Passing `--with-caddy` or `--proxy-network` upfront skips this question —
+useful when scripting a redeploy.) It then creates `.env.production` and
+generates `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`/`JWT_ADMIN_SECRET`/
+`ENCRYPTION_KEY` itself (never reused across each other — the admin panel's
+whole security model depends on that separation), builds the single `app`
+image, starts it (runs `prisma migrate deploy`, then both the API and the
+Next.js app) → `caddy` if you picked/passed option 3, and prints where to
+point your reverse proxy (or the URL to visit, if using Caddy).
 
 At the end it offers to create your first platform admin right there
 (email, name, password) — the admin panel has its own separate login and
