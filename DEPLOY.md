@@ -42,25 +42,14 @@ using the app at the same time (SQLite has no real concurrent-write story).
    docker compose version            # sanity check
    ```
 
-3. **Clone the repo and configure secrets**:
+3. **Clone the repo**:
    ```bash
    git clone https://github.com/harshallakare/sitetrack.git
    cd sitetrack
-   cp .env.production.example .env.production
    ```
-   Edit `.env.production`:
-   - `DOMAIN` — your real domain if using `--with-caddy`, otherwise leave `localhost`
-   - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ADMIN_SECRET`, `ENCRYPTION_KEY` —
-     generate each with:
-     ```bash
-     node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-     ```
-     (`ENCRYPTION_KEY` needs exactly 64 hex characters — this command produces that.)
-   - Never reuse a secret across `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` /
-     `JWT_ADMIN_SECRET` — the admin panel's whole security model depends on
-     the admin credential domain being unforgeable from a leaked tenant secret.
-   - SQLite (the default) needs nothing else here. Using Postgres/MySQL
-     instead? See that section below before your first deploy.
+   No manual `.env.production` editing needed — `deploy.sh` (next section)
+   creates it and generates all secrets itself. Using Postgres/MySQL instead
+   of the SQLite default? See that section below before your first deploy.
 
 ## First deploy
 
@@ -69,14 +58,21 @@ using the app at the same time (SQLite has no real concurrent-write story).
 ./scripts/deploy.sh --with-caddy   # also start the bundled Caddy
 ```
 
-This builds the single `app` image, starts it (runs `prisma migrate deploy`,
+Run on a real terminal, this is fully interactive: on first run it creates
+`.env.production`, generates `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`/
+`JWT_ADMIN_SECRET`/`ENCRYPTION_KEY` itself (never reused across each other —
+the admin panel's whole security model depends on that separation), and
+asks for your domain only if you passed `--with-caddy` (otherwise it stays
+`localhost`, since your own reverse proxy handles the real domain). It then
+builds the single `app` image and starts it (runs `prisma migrate deploy`,
 then both the API and the Next.js app) → `caddy` if `--with-caddy`, and
 prints where to point your reverse proxy (or the URL to visit, if using
-Caddy). It refuses to run if `.env.production` still has placeholder
-`change-me` values.
+Caddy).
 
-Once it's up, create your first platform admin (the admin panel has its own
-separate login and cannot be reached via normal signup):
+At the end it offers to create your first platform admin right there
+(email, name, password) — the admin panel has its own separate login and
+can't be reached via normal signup. Say no (or run non-interactively, e.g.
+in a script) and it prints the equivalent manual command instead:
 ```bash
 docker compose -f docker-compose.prod.yml exec app \
   pnpm --filter @sitetrack/database db:create-admin admin@yourdomain.com "a-strong-password" "Your Name"

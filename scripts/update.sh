@@ -70,16 +70,16 @@ if [ "$DO_PULL" -eq 1 ]; then
 fi
 
 log "Rebuilding changed images..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" build
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" build
 
 log "Recreating containers (only ones with a changed image are restarted)..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" up -d --remove-orphans
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" up -d --remove-orphans
 
 log "Pruning dangling images from the previous build..."
 docker image prune -f >/dev/null
 
 log "Status:"
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]}" ps
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" ps
 
 log "Recent app logs:"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=20 app
