@@ -1,11 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import argon2 from "argon2";
 import type {
   AddOrganizationUserInput,
+  CreateOrganizationInput,
   CreatePlatformAdminInput,
   ResetUserPasswordInput,
   UpdateUserInput,
 } from "@sitetrack/shared-types";
+import { isUniqueConstraintError } from "../common/prisma-errors";
+import { slugify } from "../common/slugify";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -32,6 +35,59 @@ export class PlatformAdminService {
       deliveryCount,
       totalPaymentVolumeMinor: payments._sum.amountMinor ?? 0,
     };
+  }
+
+  /**
+   * Onboards a brand-new customer directly from the admin panel: creates
+   * the organization, its owner account, and a default cash account in one
+   * transaction -- the same shape as self-serve /auth/register, minus
+   * issuing a session (the admin isn't logging in as this customer). The
+   * owner email must be brand new, same rule register() enforces.
+   */
+  async createOrganization(input: CreateOrganizationInput) {
+    const email = input.ownerEmail.toLowerCase().trim();
+    const existing = await this.prisma.unscoped.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new ConflictException("An account with this email already exists");
+    }
+
+    const passwordHash = await argon2.hash(input.ownerPassword);
+    const baseSlug = slugify(input.organizationName);
+    let slug = baseSlug;
+    let suffix = 1;
+    // eslint-disable-next-line no-await-in-loop
+    while (await this.prisma.unscoped.organization.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${++suffix}`;
+    }
+
+    try {
+      const { organization, user } = await this.prisma.unscoped.$transaction(async (tx) => {
+        const organization = await tx.organization.create({
+          data: { name: input.organizationName, slug },
+        });
+        const user = await tx.user.create({
+          data: { email, name: input.ownerName, passwordHash },
+        });
+        await tx.membership.create({
+          data: { userId: user.id, organizationId: organization.id, role: "OWNER", joinedAt: new Date() },
+        });
+        await tx.account.create({
+          data: {
+            organizationId: organization.id,
+            name: "Cash",
+            type: "CASH",
+            description: "Default cash account for petty expenses and cash transactions",
+          },
+        });
+        return { organization, user };
+      });
+      return { id: organization.id, name: organization.name, slug: organization.slug, ownerEmail: user.email };
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException("An account with this email already exists");
+      }
+      throw err;
+    }
   }
 
   listOrganizations() {

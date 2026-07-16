@@ -50,3 +50,14 @@ export const resetUserPasswordSchema = z.object({
   password: z.string().min(8).max(200),
 });
 export type ResetUserPasswordInput = z.infer<typeof resetUserPasswordSchema>;
+
+// Admin onboards a brand-new customer directly (organization + owner
+// account together) -- the same shape as self-serve /auth/register,
+// minus issuing a session, since the admin isn't logging in as them.
+export const createOrganizationSchema = z.object({
+  organizationName: z.string().min(1).max(200),
+  ownerName: z.string().min(1).max(120),
+  ownerEmail: z.string().email().max(200),
+  ownerPassword: z.string().min(8).max(200),
+});
+export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;

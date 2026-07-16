@@ -2,6 +2,7 @@ import { adminServerFetch as serverFetch } from "@/lib/admin-server-api";
 import { SuspendToggleButton } from "./suspend-toggle-button";
 import { PlanSelector } from "./plan-selector";
 import { AddUserDialog } from "./add-user-dialog";
+import { CreateOrganizationDialog } from "./create-organization-dialog";
 
 interface OrganizationRow {
   id: string;
@@ -25,9 +26,12 @@ export default async function AdminOrganizationsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold">Organizations</h1>
-        <p className="text-sm text-muted-foreground">Every tenant on the platform</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Organizations</h1>
+          <p className="text-sm text-muted-foreground">Every tenant on the platform</p>
+        </div>
+        <CreateOrganizationDialog />
       </div>
 
       <div className="flex flex-col gap-3">

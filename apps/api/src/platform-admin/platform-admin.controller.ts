@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from "@nestjs/common";
 import {
   addOrganizationUserSchema,
+  createOrganizationSchema,
   createPlatformAdminSchema,
   resetUserPasswordSchema,
   setOrganizationActiveSchema,
   setOrganizationPlanSchema,
   updateUserSchema,
   type AddOrganizationUserInput,
+  type CreateOrganizationInput,
   type CreatePlatformAdminInput,
   type ResetUserPasswordInput,
   type SetOrganizationActiveInput,
@@ -55,6 +57,11 @@ export class PlatformAdminController {
   @Get("organizations")
   listOrganizations() {
     return this.platformAdminService.listOrganizations();
+  }
+
+  @Post("organizations")
+  createOrganization(@Body(new ZodValidationPipe(createOrganizationSchema)) dto: CreateOrganizationInput) {
+    return this.platformAdminService.createOrganization(dto);
   }
 
   @Get("organizations/:id")

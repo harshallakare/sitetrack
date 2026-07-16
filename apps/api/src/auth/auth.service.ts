@@ -13,19 +13,10 @@ import type {
   Role,
 } from "@sitetrack/shared-types";
 import { isUniqueConstraintError } from "../common/prisma-errors";
+import { slugify } from "../common/slugify";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationDispatchService } from "../notifications/notification-dispatch.service";
 import type { AccessTokenPayload } from "./types";
-
-function slugify(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "") || "org"
-  );
-}
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
