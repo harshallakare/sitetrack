@@ -270,6 +270,39 @@ WEB_HOST_BIND_PORT=3001
 API_HOST_BIND_PORT=4001
 ```
 
+### If your reverse proxy itself runs in a Docker container
+
+The steps above assume your proxy runs directly on the host. If it's
+containerized instead — Nginx Proxy Manager, a dockerized nginx/Caddy,
+etc. — `127.0.0.1` inside *that* container means itself, not this host, so
+it can never reach `app` at `127.0.0.1:3000`. You'll typically see this as
+the proxy connecting successfully but returning something that isn't
+SiteTrack (e.g. Nginx Proxy Manager's own status JSON) — that's it proxying
+back to itself.
+
+Instead, attach `app` to the same Docker network your proxy container is
+already on:
+
+1. Find that network: `docker network ls`, then confirm your proxy
+   container is on it: `docker network inspect <name> --format '{{range
+   .Containers}}{{.Name}} {{end}}'`.
+2. Deploy with `--proxy-network` (works with both `deploy.sh` and
+   `update.sh`):
+   ```bash
+   ./scripts/deploy.sh --proxy-network
+   ```
+   The first time, it asks for the network name and saves it as
+   `PROXY_NETWORK_NAME` in `.env.production`. Every `update.sh` after that
+   needs the same flag (`./scripts/update.sh --proxy-network`) to keep `app`
+   attached — a plain `docker network connect` done by hand doesn't survive
+   the container being recreated.
+3. In your proxy manager, set the forward target to `app` (port `3000` for
+   everything, `4000` for `/webhooks/*` only) instead of `127.0.0.1`. For
+   Nginx Proxy Manager specifically: edit the proxy host, set **Forward
+   Hostname/IP** to `app` and **Forward Port** to `3000` (add a second
+   proxy host or custom location the same way for `4000`/`/webhooks/*` if
+   you use payment gateway webhooks).
+
 ## Troubleshooting
 
 - **`app` won't start / migrations fail**: `docker compose -f docker-compose.prod.yml logs app`.
@@ -285,3 +318,7 @@ API_HOST_BIND_PORT=4001
 - **Admin panel unreachable**: it's a separate route (`/admin/login`) and
   separate cookies from the customer app — confirm you're hitting the right
   path, and that you ran the `db:create-admin` step above.
+- **Reverse proxy connects but shows something that isn't SiteTrack** (e.g.
+  your proxy manager's own status page/API): your proxy is containerized
+  and forwarding to `127.0.0.1`, which resolves to itself, not this host —
+  see "If your reverse proxy itself runs in a Docker container" above.

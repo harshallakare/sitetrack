@@ -1,0 +1,32 @@
+# Optional override: attach `app` to an existing Docker network so a
+# CONTAINERIZED reverse proxy (Nginx Proxy Manager, a dockerized nginx/Caddy,
+# etc.) can reach it by container name instead of via a host-published port.
+# Needed because from inside that proxy's own container, "127.0.0.1" means
+# itself, not this host -- so the 127.0.0.1:3000/4000 bindings in
+# docker-compose.prod.yml are unreachable to it.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.proxy-net.yml \
+#     --env-file .env.production up -d
+# (scripts/deploy.sh and scripts/update.sh do this for you with
+# --proxy-network=<name>.)
+#
+# Then in your proxy manager, forward to `app:3000` (web, everything) and
+# `app:4000` (api, /webhooks/* only -- see Caddyfile for why) instead of
+# 127.0.0.1.
+#
+# PROXY_NETWORK_NAME in .env.production must be the name of an existing
+# Docker network your reverse proxy container is already attached to --
+# `docker network ls` to find it, `docker network inspect <name>` to confirm
+# your proxy's container is on it.
+
+services:
+  app:
+    networks:
+      - default
+      - proxy-net
+
+networks:
+  proxy-net:
+    external: true
+    name: ${PROXY_NETWORK_NAME:?Set PROXY_NETWORK_NAME in .env.production to your reverse proxy's Docker network name}

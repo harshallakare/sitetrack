@@ -2,23 +2,30 @@
 # First-time production deploy. Run this ON THE SERVER, from a clone of this
 # repo. Fully interactive on a real terminal -- no file editing required:
 # it generates secrets itself and asks only for the couple of things it
-# can't know (domain, admin login). Idempotent-ish: safe to re-run, but
-# scripts/update.sh is the normal path for every deploy after the first one.
+# can't know (domain, admin login, proxy network name). Idempotent-ish:
+# safe to re-run, but scripts/update.sh is the normal path for every deploy
+# after the first one.
 #
 # Usage:
-#   ./scripts/deploy.sh              # single `app` container on 127.0.0.1
-#                                     # -- bring your own reverse proxy (nginx, etc.)
-#   ./scripts/deploy.sh --with-caddy # also start the bundled Caddy for
-#                                     # automatic public HTTPS (needs 80/443
-#                                     # free -- see DEPLOY.md)
+#   ./scripts/deploy.sh                    # single `app` container on
+#                                           # 127.0.0.1 -- bring your own
+#                                           # host-native reverse proxy (nginx, etc.)
+#   ./scripts/deploy.sh --with-caddy       # also start the bundled Caddy for
+#                                           # automatic public HTTPS (needs
+#                                           # 80/443 free -- see DEPLOY.md)
+#   ./scripts/deploy.sh --proxy-network    # attach `app` to an existing Docker
+#                                           # network so a CONTAINERIZED reverse
+#                                           # proxy (Nginx Proxy Manager, etc.)
+#                                           # can reach it by name -- see DEPLOY.md
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.production"
+COMPOSE_FILES=(-f docker-compose.prod.yml)
 PROFILE_ARGS=()
+USE_PROXY_NETWORK=0
 
 print_help() {
   cat <<'HELP'
@@ -28,26 +35,36 @@ First-time production deploy. Run this ON THE SERVER, from a clone of this
 repo. Builds the single `app` image (runs both api and web in one
 container, migrations included) and prints where to point a reverse proxy.
 Run interactively (a real terminal), it generates all secrets itself and
-asks only for what it can't know -- your domain (if using --with-caddy) and
+asks only for what it can't know -- your domain (if using --with-caddy),
+your reverse proxy's Docker network name (if using --proxy-network), and
 your first admin login -- no manual file editing needed. Safe to re-run;
 scripts/update.sh is the normal path for every deploy after the first one.
 
 Options:
-  --with-caddy   Also start the bundled Caddy service for automatic public
-                 HTTPS. Needs ports 80/443 free on this server. Omit this if
-                 you already have your own nginx/Caddy/etc. in front (see
-                 "Running alongside an existing site" in DEPLOY.md).
-  -h, --help     Show this help and exit.
+  --with-caddy      Also start the bundled Caddy service for automatic
+                     public HTTPS. Needs ports 80/443 free on this server.
+                     Omit this if you already have your own reverse proxy
+                     in front (see "Running alongside an existing site" in
+                     DEPLOY.md).
+  --proxy-network   Attach `app` to an existing Docker network instead of
+                     (or alongside) the 127.0.0.1 port bindings. Use this
+                     when your reverse proxy itself runs in a Docker
+                     container (Nginx Proxy Manager, a dockerized
+                     nginx/Caddy, etc.) -- from inside that container,
+                     127.0.0.1 means itself, not this host.
+  -h, --help        Show this help and exit.
 
 Examples:
-  ./scripts/deploy.sh              # app on 127.0.0.1, bring your own proxy
-  ./scripts/deploy.sh --with-caddy # also start Caddy (no existing proxy)
+  ./scripts/deploy.sh                  # app on 127.0.0.1, bring your own proxy
+  ./scripts/deploy.sh --with-caddy     # also start Caddy (no existing proxy)
+  ./scripts/deploy.sh --proxy-network  # containerized reverse proxy (e.g. NPM)
 HELP
 }
 
 for arg in "$@"; do
   case "$arg" in
     --with-caddy) PROFILE_ARGS=(--profile caddy) ;;
+    --proxy-network) USE_PROXY_NETWORK=1 ;;
     -h|--help) print_help; exit 0 ;;
     *) echo "[deploy] unknown flag: $arg" >&2; print_help >&2; exit 1 ;;
   esac
@@ -73,12 +90,18 @@ gen_secret() {
 }
 
 # Replaces a KEY=... line in $ENV_FILE in place (BSD/GNU sed compatible).
+# If the key doesn't already exist as an assignment (e.g. PROXY_NETWORK_NAME,
+# which ships commented-out), appends it instead.
 set_env_var() {
   local key="$1" value="$2"
   local escaped_value
   escaped_value="$(printf '%s' "$value" | sed -e 's/[\/&]/\\&/g')"
-  sed -i.bak -E "s/^${key}=.*/${key}=${escaped_value}/" "$ENV_FILE"
-  rm -f "${ENV_FILE}.bak"
+  if grep -qE "^${key}=" "$ENV_FILE"; then
+    sed -i.bak -E "s/^${key}=.*/${key}=${escaped_value}/" "$ENV_FILE"
+    rm -f "${ENV_FILE}.bak"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+  fi
 }
 
 get_env_var() {
@@ -133,32 +156,49 @@ if grep -v '^#' "$ENV_FILE" | grep -q "change-me"; then
   log "$ENV_FILE is ready."
 fi
 
+# --- 2b. Containerized reverse proxy network (only with --proxy-network) ---
+if [ "$USE_PROXY_NETWORK" -eq 1 ]; then
+  PROXY_NETWORK_VAL="$(get_env_var PROXY_NETWORK_NAME)"
+  if [ -z "$PROXY_NETWORK_VAL" ]; then
+    PROXY_NETWORK_VAL="$(ask "Docker network your reverse proxy container is on (see: docker network ls)" "proxy-net")"
+    set_env_var "PROXY_NETWORK_NAME" "$PROXY_NETWORK_VAL"
+  fi
+  if ! docker network inspect "$PROXY_NETWORK_VAL" >/dev/null 2>&1; then
+    die "Docker network '$PROXY_NETWORK_VAL' doesn't exist. Run 'docker network ls' to find the right name, then set PROXY_NETWORK_NAME in $ENV_FILE."
+  fi
+  COMPOSE_FILES+=(-f docker-compose.proxy-net.yml)
+  log "Will attach app to Docker network '$PROXY_NETWORK_VAL' -- forward to app:3000 / app:4000 in your reverse proxy."
+fi
+
 # --- 3. Build images ---
 log "Building images (this generates the Prisma client for DATABASE_PROVIDER=$(get_env_var DATABASE_PROVIDER))..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" build
+docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" build
 
 # --- 4. Start the stack ---
 log "Starting the stack (app [runs migrations, then api + web]${PROFILE_ARGS[*]:+ -> caddy})..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" up -d
+docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" up -d
 
 log "Waiting for the app to come up..."
 for i in $(seq 1 30); do
-  if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs app 2>/dev/null | grep -q "listening on"; then
+  if docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" logs app 2>/dev/null | grep -q "listening on"; then
     log "App is up."
     break
   fi
   sleep 2
   if [ "$i" -eq 30 ]; then
-    log "App didn't report ready in time -- check logs: docker compose -f $COMPOSE_FILE logs app"
+    log "App didn't report ready in time -- check logs: docker compose ${COMPOSE_FILES[*]} logs app"
   fi
 done
 
 log "Deployed. Status:"
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" ps
+docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" "${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"}" ps
 
 if [ -n "${PROFILE_ARGS[*]:-}" ]; then
   DOMAIN_VAL="$(get_env_var DOMAIN)"
   log "Visit http://${DOMAIN_VAL:-localhost} (https:// automatically if DOMAIN is a real domain with DNS pointed here)."
+elif [ "$USE_PROXY_NETWORK" -eq 1 ]; then
+  log "app is reachable on the '$(get_env_var PROXY_NETWORK_NAME)' network as app:3000 (web) and app:4000 (api, /webhooks/* only)."
+  log "Point your reverse proxy's proxy host at those -- see 'Running alongside an existing site' in DEPLOY.md."
 else
   WEB_PORT_VAL="$(get_env_var WEB_HOST_BIND_PORT)"
   API_PORT_VAL="$(get_env_var API_HOST_BIND_PORT)"
@@ -169,7 +209,7 @@ fi
 # --- 5. First platform admin ---
 # Always offered when interactive (not just on a brand-new env file) -- if
 # you already have an admin account, just answer no.
-CREATE_ADMIN_CMD='docker compose -f '"$COMPOSE_FILE"' exec app pnpm --filter @sitetrack/database db:create-admin <email> "<password>" "<name>"'
+CREATE_ADMIN_CMD='docker compose '"${COMPOSE_FILES[*]}"' exec app pnpm --filter @sitetrack/database db:create-admin <email> "<password>" "<name>"'
 if [ "$INTERACTIVE" -eq 1 ]; then
   echo
   read -r -p "[deploy] Create your first platform admin now? [Y/n]: " CREATE_NOW || true
@@ -194,7 +234,7 @@ if [ "$INTERACTIVE" -eq 1 ]; then
     done
     if [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_NAME" ]; then
       log "Creating platform admin $ADMIN_EMAIL..."
-      docker compose -f "$COMPOSE_FILE" exec app \
+      docker compose "${COMPOSE_FILES[@]}" exec app \
         pnpm --filter @sitetrack/database db:create-admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD" "$ADMIN_NAME"
       log "Admin created. Log in at /admin/login."
     else
@@ -211,5 +251,5 @@ else
   log "  $CREATE_ADMIN_CMD"
 fi
 
-log "Logs:   docker compose -f $COMPOSE_FILE logs -f"
+log "Logs:   docker compose ${COMPOSE_FILES[*]} logs -f"
 log "Update: ./scripts/update.sh"
