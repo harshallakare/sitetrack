@@ -209,7 +209,7 @@ for i in $(seq 1 30); do
   fi
   sleep 2
   if [ "$i" -eq 30 ]; then
-    log "App didn't report ready in time -- check logs: docker compose ${COMPOSE_FILES[*]} logs app"
+    log "App didn't report ready in time -- check logs: docker compose ${COMPOSE_FILES[*]} --env-file $ENV_FILE logs app"
   fi
 done
 
@@ -232,7 +232,7 @@ fi
 # --- 5. First platform admin ---
 # Always offered when interactive (not just on a brand-new env file) -- if
 # you already have an admin account, just answer no.
-CREATE_ADMIN_CMD='docker compose '"${COMPOSE_FILES[*]}"' exec app pnpm --filter @sitetrack/database db:create-admin <email> "<password>" "<name>"'
+CREATE_ADMIN_CMD='docker compose '"${COMPOSE_FILES[*]}"' --env-file '"$ENV_FILE"' exec app pnpm --filter @sitetrack/database db:create-admin <email> "<password>" "<name>"'
 if [ "$INTERACTIVE" -eq 1 ]; then
   echo
   read -r -p "[deploy] Create your first platform admin now? [Y/n]: " CREATE_NOW || true
@@ -257,7 +257,7 @@ if [ "$INTERACTIVE" -eq 1 ]; then
     done
     if [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_NAME" ]; then
       log "Creating platform admin $ADMIN_EMAIL..."
-      docker compose "${COMPOSE_FILES[@]}" exec app \
+      docker compose "${COMPOSE_FILES[@]}" --env-file "$ENV_FILE" exec app \
         pnpm --filter @sitetrack/database db:create-admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD" "$ADMIN_NAME"
       log "Admin created. Log in at /admin/login."
     else
@@ -274,5 +274,5 @@ else
   log "  $CREATE_ADMIN_CMD"
 fi
 
-log "Logs:   docker compose ${COMPOSE_FILES[*]} logs -f"
+log "Logs:   docker compose ${COMPOSE_FILES[*]} --env-file $ENV_FILE logs -f"
 log "Update: ./scripts/update.sh"
