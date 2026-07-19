@@ -12,9 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { clientFetch } from "@/lib/client-api";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 export function CreateItemDialog() {
   const router = useRouter();
+  const { t } = usePreferences();
   const [open, setOpen] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
   const {
@@ -32,7 +34,7 @@ export function CreateItemDialog() {
       setOpen(false);
       router.refresh();
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : "Failed to create item");
+      setServerError(err instanceof Error ? err.message : t("items.form.createFailed"));
     }
   }
 
@@ -40,27 +42,27 @@ export function CreateItemDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="h-4 w-4" /> Add Item
+          <Plus className="h-4 w-4" /> {t("items.addItem")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Item</DialogTitle>
+          <DialogTitle>{t("items.addItem")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Item Name</Label>
+            <Label htmlFor="name">{t("items.form.name")}</Label>
             <Input id="name" {...register("name")} />
             {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="unitOfMeasure">Unit of Measure</Label>
+            <Label htmlFor="unitOfMeasure">{t("items.form.unit")}</Label>
             <select
               id="unitOfMeasure"
               className="flex h-10 w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
               {...register("unitOfMeasure")}
             >
-              <option value="">Select unit</option>
+              <option value="">{t("items.form.selectUnit")}</option>
               {UNITS_OF_MEASURE.map((unit) => (
                 <option key={unit} value={unit}>
                   {unit.replace("_", " ")}
@@ -70,17 +72,17 @@ export function CreateItemDialog() {
             {errors.unitOfMeasure && <p className="text-sm text-red-500">{errors.unitOfMeasure.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="category">Category</Label>
+            <Label htmlFor="category">{t("common.category")}</Label>
             <Input id="category" {...register("category")} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t("common.description")}</Label>
             <Textarea id="description" {...register("description")} />
           </div>
           {serverError && <p className="text-sm text-red-500">{serverError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create"}
+              {isSubmitting ? t("common.creating") : t("common.create")}
             </Button>
           </div>
         </form>

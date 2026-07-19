@@ -1,5 +1,6 @@
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { serverFetch } from "@/lib/server-api";
+import { getServerT } from "@/lib/i18n/server";
 
 interface ActivityEntry {
   id: string;
@@ -10,27 +11,28 @@ interface ActivityEntry {
   createdAt: string;
 }
 
-const ACTION_META: Record<string, { label: string; icon: typeof Plus; className: string }> = {
-  CREATE: { label: "created", icon: Plus, className: "text-green-600 bg-green-500/10" },
-  UPDATE: { label: "updated", icon: Pencil, className: "text-blue-600 bg-blue-500/10" },
-  DELETE: { label: "deleted", icon: Trash2, className: "text-red-600 bg-red-500/10" },
+const ACTION_META: Record<string, { labelKey: "activity.created" | "activity.updated" | "activity.deleted"; icon: typeof Plus; className: string }> = {
+  CREATE: { labelKey: "activity.created", icon: Plus, className: "text-green-600 bg-green-500/10" },
+  UPDATE: { labelKey: "activity.updated", icon: Pencil, className: "text-blue-600 bg-blue-500/10" },
+  DELETE: { labelKey: "activity.deleted", icon: Trash2, className: "text-red-600 bg-red-500/10" },
 };
 
 export default async function ActivityPage() {
+  const t = getServerT();
   const entries = await serverFetch<ActivityEntry[]>("/activity?limit=100");
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold">Activity</h1>
+        <h1 className="text-2xl font-bold">{t("activity.title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Every change to vendors, items, deliveries, payments, and accounts — who did what, and when.
+          {t("activity.subtitle")}
         </p>
       </div>
 
       {entries.length === 0 ? (
         <p className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-          No activity yet. Changes to your records will appear here.
+          {t("activity.empty")}
         </p>
       ) : (
         <div className="rounded-lg border border-border divide-y divide-border">
@@ -44,7 +46,7 @@ export default async function ActivityPage() {
                 </span>
                 <div className="flex-1">
                   <div className="text-sm">
-                    <span className="font-medium">{e.actorName}</span> {meta.label} a{" "}
+                    <span className="font-medium">{e.actorName}</span> {t(meta.labelKey)} a{" "}
                     <span className="font-medium">{e.entityType.toLowerCase()}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">{new Date(e.createdAt).toLocaleString()}</div>

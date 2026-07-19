@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Truck, ArrowLeftRight } from "lucide-react";
 import { serverFetch } from "@/lib/server-api";
 import { fromMinorUnits } from "@sitetrack/shared-types";
+import { getServerT } from "@/lib/i18n/server";
 
 interface LedgerEntry {
   type: "DELIVERY" | "PAYMENT";
@@ -25,6 +26,7 @@ function money(minor: number) {
 }
 
 export default async function VendorLedgerPage({ params }: { params: { id: string } }) {
+  const t = getServerT();
   // A cross-tenant or unknown id 404s at the API -- render the not-found
   // page instead of the generic error boundary.
   const ledger = await serverFetch<Ledger>(`/vendors/${params.id}/ledger`).catch(() => null);
@@ -33,25 +35,25 @@ export default async function VendorLedgerPage({ params }: { params: { id: strin
   return (
     <div className="flex flex-col gap-4">
       <Link href="/vendors" className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to vendors
+        <ArrowLeft className="h-4 w-4" /> {t("vendors.backToVendors")}
       </Link>
 
       <div>
         <h1 className="text-2xl font-bold">{ledger.vendor.companyName ?? ledger.vendor.contactPerson}</h1>
-        <p className="text-sm text-muted-foreground">{ledger.vendor.contactPerson} · Ledger</p>
+        <p className="text-sm text-muted-foreground">{ledger.vendor.contactPerson} · {t("vendors.ledger")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-lg border border-border p-4">
-          <div className="text-xs uppercase text-muted-foreground">Total Delivered</div>
+          <div className="text-xs uppercase text-muted-foreground">{t("vendors.totalDelivered")}</div>
           <div className="text-2xl font-bold">{money(ledger.deliveredMinor)}</div>
         </div>
         <div className="rounded-lg border border-border p-4">
-          <div className="text-xs uppercase text-muted-foreground">Total Paid</div>
+          <div className="text-xs uppercase text-muted-foreground">{t("vendors.totalPaid")}</div>
           <div className="text-2xl font-bold">{money(ledger.paidMinor)}</div>
         </div>
         <div className="rounded-lg border border-border p-4">
-          <div className="text-xs uppercase text-muted-foreground">Outstanding</div>
+          <div className="text-xs uppercase text-muted-foreground">{t("vendors.colOutstanding")}</div>
           <div className={`text-2xl font-bold ${ledger.outstandingMinor > 0 ? "text-primary" : "text-green-600"}`}>
             {money(ledger.outstandingMinor)}
           </div>
@@ -59,9 +61,9 @@ export default async function VendorLedgerPage({ params }: { params: { id: strin
       </div>
 
       <div className="rounded-lg border border-border">
-        <div className="border-b border-border px-4 py-3 font-semibold">Transactions</div>
+        <div className="border-b border-border px-4 py-3 font-semibold">{t("vendors.transactions")}</div>
         {ledger.entries.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">No deliveries or payments recorded yet.</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">{t("vendors.noTransactions")}</p>
         ) : (
           <div className="divide-y divide-border">
             {ledger.entries.map((e) => (
@@ -72,7 +74,7 @@ export default async function VendorLedgerPage({ params }: { params: { id: strin
                   </span>
                   <div>
                     <div className="text-sm font-medium">
-                      {e.type === "DELIVERY" ? "Delivery" : "Payment"}
+                      {e.type === "DELIVERY" ? t("vendors.delivery") : t("vendors.payment")}
                       {e.reference ? ` · ${e.reference}` : ""}
                     </div>
                     <div className="text-xs text-muted-foreground">

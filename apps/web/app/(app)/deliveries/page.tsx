@@ -3,6 +3,7 @@ import { fromMinorUnits } from "@sitetrack/shared-types";
 import { SearchBox } from "@/components/ui/search-box";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { PaginationNav } from "@/components/ui/pagination-nav";
+import { getServerT } from "@/lib/i18n/server";
 import { CreateDeliveryDialog } from "./create-delivery-dialog";
 
 interface DeliveryLineItem {
@@ -40,6 +41,7 @@ export default async function DeliveriesPage({
 }: {
   searchParams: { search?: string; page?: string };
 }) {
+  const t = getServerT();
   const search = searchParams.search ?? "";
   const page = Math.max(1, Number(searchParams.page) || 1);
   // Fetch one extra row purely to know whether a next page exists.
@@ -61,8 +63,8 @@ export default async function DeliveriesPage({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Deliveries</h1>
-          <p className="text-sm text-muted-foreground">Track multi-item deliveries and manage receipts</p>
+          <h1 className="text-2xl font-bold">{t("deliveries.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("deliveries.subtitle")}</p>
         </div>
         <CreateDeliveryDialog
           sites={sites.map((s) => ({ id: s.id, label: s.name }))}
@@ -71,11 +73,11 @@ export default async function DeliveriesPage({
         />
       </div>
 
-      <SearchBox placeholder="Search by reference or vendor..." />
+      <SearchBox placeholder={t("deliveries.searchPlaceholder")} />
 
       {deliveries.length === 0 ? (
         <p className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-          {search ? "No deliveries match your search." : "No deliveries recorded. Start tracking by recording a delivery."}
+          {search ? t("deliveries.emptySearch") : t("deliveries.empty")}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -96,7 +98,7 @@ export default async function DeliveriesPage({
                   </div>
                   <DeleteButton
                     path={`/deliveries/${delivery.id}`}
-                    confirmMessage="Delete this delivery and its line items? This affects the vendor ledger."
+                    confirmMessage={t("deliveries.deleteConfirm")}
                   />
                 </div>
               </div>

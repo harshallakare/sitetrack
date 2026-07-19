@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clientFetch } from "@/lib/client-api";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 interface BudgetRow {
   id: string | null;
@@ -31,6 +32,7 @@ function money(minor: number) {
 
 export function BudgetManager({ siteId, budget }: { siteId: string; budget: SiteBudget }) {
   const router = useRouter();
+  const { t } = usePreferences();
   const [category, setCategory] = React.useState("");
   const [planned, setPlanned] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -48,7 +50,7 @@ export function BudgetManager({ siteId, budget }: { siteId: string; budget: Site
       setPlanned("");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error ? err.message : t("budget.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -61,29 +63,29 @@ export function BudgetManager({ siteId, budget }: { siteId: string; budget: Site
       {/* Summary */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-lg border border-border p-4">
-          <div className="text-xs uppercase text-muted-foreground">Planned</div>
+          <div className="text-xs uppercase text-muted-foreground">{t("budget.planned")}</div>
           <div className="text-2xl font-bold">{money(budget.totalPlannedMinor)}</div>
         </div>
         <div className="rounded-lg border border-border p-4">
-          <div className="text-xs uppercase text-muted-foreground">Actual</div>
+          <div className="text-xs uppercase text-muted-foreground">{t("budget.actual")}</div>
           <div className="text-2xl font-bold">{money(budget.totalActualMinor)}</div>
         </div>
         <div className="rounded-lg border border-border p-4">
-          <div className="text-xs uppercase text-muted-foreground">Variance</div>
+          <div className="text-xs uppercase text-muted-foreground">{t("budget.variance")}</div>
           <div className={`text-2xl font-bold ${overBudget ? "text-red-600" : "text-green-600"}`}>
             {overBudget ? "−" : "+"}
             {money(Math.abs(budget.totalVarianceMinor))}
           </div>
-          <div className="text-xs text-muted-foreground">{overBudget ? "Over budget" : "Under budget"}</div>
+          <div className="text-xs text-muted-foreground">{overBudget ? t("budget.overBudget") : t("budget.underBudget")}</div>
         </div>
       </div>
 
       {/* Rows */}
       <div className="rounded-lg border border-border">
-        <div className="border-b border-border px-4 py-3 font-semibold">By category</div>
+        <div className="border-b border-border px-4 py-3 font-semibold">{t("budget.byCategory")}</div>
         {budget.rows.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">
-            No budget lines or spend yet. Add a category budget below.
+            {t("budget.empty")}
           </p>
         ) : (
           <div className="divide-y divide-border">
@@ -97,7 +99,7 @@ export function BudgetManager({ siteId, budget }: { siteId: string; budget: Site
                       {r.category}
                       {!r.budgeted && (
                         <span className="ml-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600">
-                          no budget set
+                          {t("budget.noBudgetSet")}
                         </span>
                       )}
                     </div>
@@ -112,7 +114,7 @@ export function BudgetManager({ siteId, budget }: { siteId: string; budget: Site
                     </div>
                   )}
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {over ? `Over by ${money(-r.varianceMinor)}` : `${money(r.varianceMinor)} remaining`}
+                    {over ? `${t("budget.overBy")} ${money(-r.varianceMinor)}` : `${money(r.varianceMinor)} ${t("budget.remaining")}`}
                   </div>
                 </div>
               );
@@ -124,19 +126,19 @@ export function BudgetManager({ siteId, budget }: { siteId: string; budget: Site
       {/* Add / update a category budget */}
       <div className="rounded-lg border border-border p-4">
         <h2 className="mb-3 flex items-center gap-2 font-semibold">
-          <Plus className="h-4 w-4" /> Set a category budget
+          <Plus className="h-4 w-4" /> {t("budget.setCategoryBudget")}
         </h2>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex flex-1 flex-col gap-1.5">
-            <Label htmlFor="cat">Category</Label>
-            <Input id="cat" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Structural, Plumbing" />
+            <Label htmlFor="cat">{t("common.category")}</Label>
+            <Input id="cat" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={t("budget.categoryPlaceholder")} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="planned">Planned amount (₹)</Label>
+            <Label htmlFor="planned">{t("budget.plannedAmount")}</Label>
             <Input id="planned" type="number" value={planned} onChange={(e) => setPlanned(e.target.value)} />
           </div>
           <Button onClick={() => setBudget(category, Number(planned))} disabled={busy || !category || !planned}>
-            Save budget
+            {t("budget.saveBudget")}
           </Button>
         </div>
         {error && <p className="mt-2 text-sm text-red-500">{error}</p>}

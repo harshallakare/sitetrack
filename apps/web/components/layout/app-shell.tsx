@@ -94,7 +94,7 @@ export function AppShell({
         </div>
         <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
           <Dialog.Trigger asChild>
-            <button className="rounded-md p-2 hover:bg-muted" aria-label="Open menu">
+            <button className="rounded-md p-2 hover:bg-muted" aria-label={t("common.openMenu")}>
               <Menu className="h-5 w-5" />
             </button>
           </Dialog.Trigger>
@@ -104,7 +104,7 @@ export function AppShell({
               <div className="flex items-center justify-between border-b border-border px-4 py-4">
                 <span className="text-lg font-bold">SiteTrack</span>
                 <Dialog.Close asChild>
-                  <button className="rounded-md p-2 hover:bg-muted" aria-label="Close menu">
+                  <button className="rounded-md p-2 hover:bg-muted" aria-label={t("common.closeMenu")}>
                     <X className="h-5 w-5" />
                   </button>
                 </Dialog.Close>

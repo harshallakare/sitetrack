@@ -56,7 +56,7 @@ export default async function DashboardPage() {
         <Link href="/vendors">
           <Card className="h-full transition-colors hover:bg-muted">
             <CardHeader>
-              <CardTitle>Outstanding to Vendors</CardTitle>
+              <CardTitle>{t("dashboard.outstandingToVendors")}</CardTitle>
             </CardHeader>
             <CardContent className="text-3xl font-bold text-primary">
               ₹{fromMinorUnits(payables.totalOutstandingMinor).toFixed(2)}
@@ -68,32 +68,35 @@ export default async function DashboardPage() {
       {sites.length === 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Getting Started</CardTitle>
+            <CardTitle>{t("dashboard.gettingStarted")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-            <p>Welcome to SiteTrack! Follow these steps to start tracking your deliveries, payments, and more.</p>
+            <p>{t("dashboard.welcome")}</p>
             <ol className="list-decimal pl-5">
               <li>
-                Create your first{" "}
+                {t("dashboard.step1").split("{link}")[0]}
                 <Link href="/sites" className="text-primary underline-offset-4 hover:underline">
-                  construction site
+                  {t("dashboard.constructionSiteLink")}
                 </Link>
+                {t("dashboard.step1").split("{link}")[1]}
               </li>
               <li>
-                Add your{" "}
+                {t("dashboard.step2").split("{vendors}")[0]}
                 <Link href="/vendors" className="text-primary underline-offset-4 hover:underline">
-                  vendors
-                </Link>{" "}
-                and{" "}
-                <Link href="/items" className="text-primary underline-offset-4 hover:underline">
-                  items
+                  {t("dashboard.vendorsLink")}
                 </Link>
+                {t("dashboard.step2").split("{vendors}")[1]?.split("{items}")[0]}
+                <Link href="/items" className="text-primary underline-offset-4 hover:underline">
+                  {t("dashboard.itemsLink")}
+                </Link>
+                {t("dashboard.step2").split("{items}")[1]}
               </li>
               <li>
-                Record your first{" "}
+                {t("dashboard.step3").split("{link}")[0]}
                 <Link href="/deliveries" className="text-primary underline-offset-4 hover:underline">
-                  delivery
+                  {t("dashboard.deliveryLink")}
                 </Link>
+                {t("dashboard.step3").split("{link}")[1]}
               </li>
             </ol>
           </CardContent>

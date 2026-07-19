@@ -3,6 +3,7 @@ import { fromMinorUnits } from "@sitetrack/shared-types";
 import { SearchBox } from "@/components/ui/search-box";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { PaginationNav } from "@/components/ui/pagination-nav";
+import { getServerT } from "@/lib/i18n/server";
 import { CreatePaymentDialog } from "./create-payment-dialog";
 
 interface Payment {
@@ -22,6 +23,7 @@ export default async function PaymentsPage({
 }: {
   searchParams: { search?: string; page?: string };
 }) {
+  const t = getServerT();
   const search = searchParams.search ?? "";
   const page = Math.max(1, Number(searchParams.page) || 1);
   // Fetch one extra row purely to know whether a next page exists.
@@ -43,8 +45,8 @@ export default async function PaymentsPage({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Payments</h1>
-          <p className="text-sm text-muted-foreground">Track payments to vendors and manage payment status</p>
+          <h1 className="text-2xl font-bold">{t("payments.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("payments.subtitle")}</p>
         </div>
         <CreatePaymentDialog
           sites={sites.map((s) => ({ id: s.id, label: s.name }))}
@@ -53,11 +55,11 @@ export default async function PaymentsPage({
         />
       </div>
 
-      <SearchBox placeholder="Search by vendor or note..." />
+      <SearchBox placeholder={t("payments.searchPlaceholder")} />
 
       {payments.length === 0 ? (
         <p className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-          {search ? "No payments match your search." : "No payments recorded. Start tracking by recording a payment."}
+          {search ? t("payments.emptySearch") : t("payments.empty")}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -74,7 +76,7 @@ export default async function PaymentsPage({
                 <div className="font-semibold text-primary">₹{fromMinorUnits(payment.amountMinor).toFixed(2)}</div>
                 <DeleteButton
                   path={`/payments/${payment.id}`}
-                  confirmMessage="Delete this payment? The account balance it drew down will be restored."
+                  confirmMessage={t("payments.deleteConfirm")}
                 />
               </div>
             </div>

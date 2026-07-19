@@ -12,9 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { clientFetch } from "@/lib/client-api";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 export function CreateSiteDialog() {
   const router = useRouter();
+  const { t } = usePreferences();
   const [open, setOpen] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
   const {
@@ -32,7 +34,7 @@ export function CreateSiteDialog() {
       setOpen(false);
       router.refresh();
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : "Failed to create site");
+      setServerError(err instanceof Error ? err.message : t("sites.form.createFailed"));
     }
   }
 
@@ -40,37 +42,37 @@ export function CreateSiteDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="h-4 w-4" /> New Site
+          <Plus className="h-4 w-4" /> {t("sites.newSite")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Site</DialogTitle>
+          <DialogTitle>{t("sites.createSite")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Site Name</Label>
+            <Label htmlFor="name">{t("sites.form.name")}</Label>
             <Input id="name" {...register("name")} />
             {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">{t("sites.form.address")}</Label>
             <Textarea id="address" {...register("address")} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="unitCount">Total Units</Label>
+              <Label htmlFor="unitCount">{t("sites.form.unitCount")}</Label>
               <Input id="unitCount" type="number" {...register("unitCount")} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="plannedSqft">Planned Area (sqft)</Label>
+              <Label htmlFor="plannedSqft">{t("sites.form.plannedArea")}</Label>
               <Input id="plannedSqft" type="number" {...register("plannedSqft")} />
             </div>
           </div>
           {serverError && <p className="text-sm text-red-500">{serverError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Site"}
+              {isSubmitting ? t("common.creating") : t("sites.createSite")}
             </Button>
           </div>
         </form>

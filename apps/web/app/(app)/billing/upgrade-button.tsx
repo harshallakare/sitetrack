@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CheckoutSessionResult } from "@sitetrack/shared-types";
 import { Button } from "@/components/ui/button";
 import { clientFetch } from "@/lib/client-api";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 interface RazorpayCheckoutResponse {
   razorpay_payment_id: string;
@@ -22,19 +23,20 @@ declare global {
   }
 }
 
-function loadRazorpayScript(): Promise<void> {
+function loadRazorpayScript(errorMessage: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (window.Razorpay) return resolve();
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load the payment checkout script"));
+    script.onerror = () => reject(new Error(errorMessage));
     document.body.appendChild(script);
   });
 }
 
 export function UpgradeButton() {
   const router = useRouter();
+  const { t } = usePreferences();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -43,9 +45,9 @@ export function UpgradeButton() {
     setError(null);
     try {
       const session = await clientFetch<CheckoutSessionResult>("/billing/checkout", { method: "POST" });
-      await loadRazorpayScript();
+      await loadRazorpayScript(t("billing.checkoutScriptFailed"));
 
-      if (!window.Razorpay) throw new Error("Payment checkout script did not load");
+      if (!window.Razorpay) throw new Error(t("billing.checkoutScriptMissing"));
 
       const razorpay = new window.Razorpay({
         key: session.keyId,
@@ -65,7 +67,7 @@ export function UpgradeButton() {
             });
             router.refresh();
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Payment verification failed");
+            setError(err instanceof Error ? err.message : t("billing.verifyFailed"));
           } finally {
             setBusy(false);
           }
@@ -76,7 +78,7 @@ export function UpgradeButton() {
       });
       razorpay.open();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start checkout");
+      setError(err instanceof Error ? err.message : t("billing.checkoutFailed"));
       setBusy(false);
     }
   }
@@ -84,7 +86,7 @@ export function UpgradeButton() {
   return (
     <div className="flex flex-col items-end gap-1">
       <Button size="sm" onClick={handleUpgrade} disabled={busy}>
-        {busy ? "Opening checkout…" : "Upgrade to Unlimited"}
+        {busy ? t("billing.openingCheckout") : t("billing.upgrade")}
       </Button>
       {error && <p className="text-xs text-red-500">{error}</p>}
     </div>

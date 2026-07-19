@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { clientFetch } from "@/lib/client-api";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 /**
  * Deletes a resource via the tenant proxy, with a confirm prompt, then
@@ -11,6 +12,7 @@ import { clientFetch } from "@/lib/client-api";
  */
 export function DeleteButton({ path, confirmMessage }: { path: string; confirmMessage: string }) {
   const router = useRouter();
+  const { t } = usePreferences();
   const [busy, setBusy] = React.useState(false);
 
   async function handleDelete() {
@@ -20,7 +22,7 @@ export function DeleteButton({ path, confirmMessage }: { path: string; confirmMe
       await clientFetch(path, { method: "DELETE" });
       router.refresh();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Delete failed");
+      window.alert(err instanceof Error ? err.message : t("common.deleteFailed"));
     } finally {
       setBusy(false);
     }
@@ -30,7 +32,7 @@ export function DeleteButton({ path, confirmMessage }: { path: string; confirmMe
     <button
       onClick={handleDelete}
       disabled={busy}
-      aria-label="Delete"
+      aria-label={t("common.delete")}
       className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-red-600 disabled:opacity-50"
     >
       <Trash2 className="h-4 w-4" />

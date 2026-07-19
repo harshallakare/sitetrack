@@ -12,9 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { clientFetch } from "@/lib/client-api";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 export function CreateVendorDialog() {
   const router = useRouter();
+  const { t } = usePreferences();
   const [open, setOpen] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [tagsText, setTagsText] = React.useState("");
@@ -30,7 +32,7 @@ export function CreateVendorDialog() {
     try {
       const tagNames = tagsText
         .split(",")
-        .map((t) => t.trim())
+        .map((tag) => tag.trim())
         .filter(Boolean);
       await clientFetch("/vendors", { method: "POST", body: JSON.stringify({ ...values, tagNames }) });
       reset();
@@ -38,7 +40,7 @@ export function CreateVendorDialog() {
       setOpen(false);
       router.refresh();
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : "Failed to create vendor");
+      setServerError(err instanceof Error ? err.message : t("vendors.form.createFailed"));
     }
   }
 
@@ -46,49 +48,49 @@ export function CreateVendorDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="h-4 w-4" /> Add Vendor
+          <Plus className="h-4 w-4" /> {t("vendors.addVendor")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Vendor</DialogTitle>
+          <DialogTitle>{t("vendors.addVendor")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="contactPerson">Contact Person</Label>
+            <Label htmlFor="contactPerson">{t("vendors.form.contactPerson")}</Label>
             <Input id="contactPerson" {...register("contactPerson")} />
             {errors.contactPerson && <p className="text-sm text-red-500">{errors.contactPerson.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="companyName">Company Name (Optional)</Label>
+            <Label htmlFor="companyName">{t("vendors.form.companyName")} {t("common.optional")}</Label>
             <Input id="companyName" {...register("companyName")} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="paymentDetails">Payment Details</Label>
-            <Textarea id="paymentDetails" placeholder="Bank details, UPI ID, or payment instructions" {...register("paymentDetails")} />
+            <Label htmlFor="paymentDetails">{t("vendors.form.paymentDetails")}</Label>
+            <Textarea id="paymentDetails" placeholder={t("vendors.form.paymentDetailsPlaceholder")} {...register("paymentDetails")} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("common.email")}</Label>
               <Input id="email" type="email" {...register("email")} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{t("vendors.colPhone")}</Label>
               <Input id="phone" {...register("phone")} />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">{t("sites.form.address")}</Label>
             <Textarea id="address" {...register("address")} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tags">Vendor Tags (comma separated)</Label>
-            <Input id="tags" value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="cement, trusted" />
+            <Label htmlFor="tags">{t("vendors.form.tags")}</Label>
+            <Input id="tags" value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder={t("vendors.form.tagsPlaceholder")} />
           </div>
           {serverError && <p className="text-sm text-red-500">{serverError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create"}
+              {isSubmitting ? t("common.creating") : t("common.create")}
             </Button>
           </div>
         </form>

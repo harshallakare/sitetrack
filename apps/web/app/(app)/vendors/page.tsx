@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { serverFetch } from "@/lib/server-api";
 import { fromMinorUnits } from "@sitetrack/shared-types";
+import { getServerT } from "@/lib/i18n/server";
 import { CreateVendorDialog } from "./create-vendor-dialog";
 
 interface Vendor {
@@ -22,6 +23,7 @@ function money(minor: number) {
 }
 
 export default async function VendorsPage() {
+  const t = getServerT();
   const [vendors, payables] = await Promise.all([
     serverFetch<Vendor[]>("/vendors"),
     serverFetch<Payables>("/vendors/payables"),
@@ -32,32 +34,32 @@ export default async function VendorsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Vendors</h1>
-          <p className="text-sm text-muted-foreground">Manage your vendor contacts and outstanding balances</p>
+          <h1 className="text-2xl font-bold">{t("vendors.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("vendors.subtitle")}</p>
         </div>
         <CreateVendorDialog />
       </div>
 
       {/* Total payables — the headline number */}
       <div className="rounded-lg border border-border p-4">
-        <div className="text-xs uppercase text-muted-foreground">Total Outstanding (Payables)</div>
+        <div className="text-xs uppercase text-muted-foreground">{t("vendors.totalOutstanding")}</div>
         <div className="text-2xl font-bold text-primary">{money(payables.totalOutstandingMinor)}</div>
-        <div className="text-xs text-muted-foreground">What you still owe across all vendors</div>
+        <div className="text-xs text-muted-foreground">{t("vendors.totalOutstandingHint")}</div>
       </div>
 
       {vendors.length === 0 ? (
         <p className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-          No vendors yet. Get started by adding a vendor.
+          {t("vendors.empty")}
         </p>
       ) : (
         <>
           <table className="hidden w-full border-collapse text-sm md:table">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground">
-                <th className="py-2 pr-4 font-medium">Contact</th>
-                <th className="py-2 pr-4 font-medium">Company</th>
-                <th className="py-2 pr-4 font-medium">Phone</th>
-                <th className="py-2 pr-4 text-right font-medium">Outstanding</th>
+                <th className="py-2 pr-4 font-medium">{t("vendors.colContact")}</th>
+                <th className="py-2 pr-4 font-medium">{t("vendors.colCompany")}</th>
+                <th className="py-2 pr-4 font-medium">{t("vendors.colPhone")}</th>
+                <th className="py-2 pr-4 text-right font-medium">{t("vendors.colOutstanding")}</th>
                 <th className="py-2 pr-4 font-medium"></th>
               </tr>
             </thead>
@@ -74,7 +76,7 @@ export default async function VendorsPage() {
                     </td>
                     <td className="py-3 pr-4 text-right">
                       <Link href={`/vendors/${vendor.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
-                        View ledger
+                        {t("vendors.viewLedger")}
                       </Link>
                     </td>
                   </tr>

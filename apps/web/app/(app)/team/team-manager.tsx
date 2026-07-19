@@ -55,7 +55,7 @@ export function TeamManager({
       reset({ email: "", role: "SUPERVISOR" });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to invite");
+      setError(err instanceof Error ? err.message : t("team.inviteFailed"));
     }
   }
 
@@ -65,18 +65,18 @@ export function TeamManager({
       await clientFetch(`/members/${membershipId}/role`, { method: "PATCH", body: JSON.stringify({ role }) });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to change role");
+      setError(err instanceof Error ? err.message : t("team.roleChangeFailed"));
     }
   }
 
   async function removeMember(membershipId: string) {
-    if (!window.confirm("Remove this member from the organization?")) return;
+    if (!window.confirm(t("team.removeConfirm"))) return;
     setError(null);
     try {
       await clientFetch(`/members/${membershipId}`, { method: "DELETE" });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove");
+      setError(err instanceof Error ? err.message : t("team.removeFailed"));
     }
   }
 
@@ -86,7 +86,7 @@ export function TeamManager({
       await clientFetch(`/members/invitations/${id}`, { method: "DELETE" });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to revoke");
+      setError(err instanceof Error ? err.message : t("team.revokeFailed"));
     }
   }
 
@@ -114,12 +114,12 @@ export function TeamManager({
           </h2>
           <form onSubmit={handleSubmit(onInvite)} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex flex-1 flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("common.email")}</Label>
               <Input id="email" type="email" placeholder="person@example.com" {...register("email")} />
               {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="role">{t("common.role")}</Label>
               <select id="role" className="flex h-10 rounded-md border border-border bg-transparent px-3 py-2 text-sm" {...register("role")}>
                 {ROLES.map((r) => (
                   <option key={r} value={r}>
@@ -129,7 +129,7 @@ export function TeamManager({
               </select>
             </div>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Sending..." : "Send Invite"}
+              {isSubmitting ? t("team.sending") : t("team.sendInvite")}
             </Button>
           </form>
         </section>
@@ -143,7 +143,7 @@ export function TeamManager({
               <div>
                 <div className="font-medium">
                   {m.user.name}
-                  {m.user.id === currentUserId && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
+                  {m.user.id === currentUserId && <span className="ml-2 text-xs text-muted-foreground">{t("team.you")}</span>}
                 </div>
                 <div className="text-sm text-muted-foreground">{m.user.email}</div>
               </div>
@@ -183,13 +183,13 @@ export function TeamManager({
                 <div>
                   <div className="font-medium">{inv.email}</div>
                   <div className="text-sm text-muted-foreground">
-                    {t(`role.${inv.role}` as const)} · expires {new Date(inv.expiresAt).toLocaleDateString()}
+                    {t(`role.${inv.role}` as const)} · {t("team.expires")} {new Date(inv.expiresAt).toLocaleDateString()}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => copyLink(inv.token)}>
                     {copiedToken === inv.token ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copiedToken === inv.token ? "Copied" : "Copy link"}
+                    {copiedToken === inv.token ? t("team.copied") : t("team.copyLink")}
                   </Button>
                   <Button variant="ghost" size="icon" onClick={() => revokeInvite(inv.id)}>
                     <Trash2 className="h-4 w-4" />

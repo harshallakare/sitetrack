@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getServerT } from "@/lib/i18n/server";
 
 /**
  * Server-rendered Prev/Next pagination. Pages are 1-based and carried in the
@@ -17,6 +18,7 @@ export function PaginationNav({
   extraParams?: Record<string, string>;
 }) {
   if (page <= 1 && !hasNext) return null;
+  const t = getServerT();
 
   const href = (target: number) => {
     const params = new URLSearchParams(extraParams);
@@ -32,11 +34,11 @@ export function PaginationNav({
   return (
     <nav className="flex items-center justify-between">
       <Link href={href(page - 1)} className={`${linkClass} ${page <= 1 ? disabledClass : ""}`} aria-disabled={page <= 1}>
-        <ChevronLeft className="h-4 w-4" /> Previous
+        <ChevronLeft className="h-4 w-4" /> {t("common.previous")}
       </Link>
-      <span className="text-sm text-muted-foreground">Page {page}</span>
+      <span className="text-sm text-muted-foreground">{t("common.page")} {page}</span>
       <Link href={href(page + 1)} className={`${linkClass} ${!hasNext ? disabledClass : ""}`} aria-disabled={!hasNext}>
-        Next <ChevronRight className="h-4 w-4" />
+        {t("common.next")} <ChevronRight className="h-4 w-4" />
       </Link>
     </nav>
   );

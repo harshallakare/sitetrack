@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { clientFetch } from "@/lib/client-api";
+import { usePreferences } from "@/components/providers/preferences-provider";
 
 interface Option {
   id: string;
@@ -20,6 +21,7 @@ interface Option {
 
 export function CreatePaymentDialog({ sites, accounts, vendors }: { sites: Option[]; accounts: Option[]; vendors: Option[] }) {
   const router = useRouter();
+  const { t } = usePreferences();
   const [open, setOpen] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
   const {
@@ -40,7 +42,7 @@ export function CreatePaymentDialog({ sites, accounts, vendors }: { sites: Optio
       setOpen(false);
       router.refresh();
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : "Failed to record payment");
+      setServerError(err instanceof Error ? err.message : t("payments.form.saveFailed"));
     }
   }
 
@@ -48,18 +50,18 @@ export function CreatePaymentDialog({ sites, accounts, vendors }: { sites: Optio
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="h-4 w-4" /> Record Payment
+          <Plus className="h-4 w-4" /> {t("payments.recordPayment")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record Payment</DialogTitle>
+          <DialogTitle>{t("payments.recordPayment")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="siteId">Site</Label>
+            <Label htmlFor="siteId">{t("common.site")}</Label>
             <select id="siteId" className="flex h-10 w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm" {...register("siteId")}>
-              <option value="">Select a site</option>
+              <option value="">{t("common.selectSite")}</option>
               {sites.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
@@ -69,9 +71,9 @@ export function CreatePaymentDialog({ sites, accounts, vendors }: { sites: Optio
             {errors.siteId && <p className="text-sm text-red-500">{errors.siteId.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="vendorId">Vendor</Label>
+            <Label htmlFor="vendorId">{t("common.vendor")}</Label>
             <select id="vendorId" className="flex h-10 w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm" {...register("vendorId")}>
-              <option value="">Select a vendor</option>
+              <option value="">{t("common.selectVendor")}</option>
               {vendors.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.label}
@@ -81,9 +83,9 @@ export function CreatePaymentDialog({ sites, accounts, vendors }: { sites: Optio
             {errors.vendorId && <p className="text-sm text-red-500">{errors.vendorId.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="accountId">From Account</Label>
+            <Label htmlFor="accountId">{t("payments.form.fromAccount")}</Label>
             <select id="accountId" className="flex h-10 w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm" {...register("accountId")}>
-              <option value="">Select an account</option>
+              <option value="">{t("common.selectAccount")}</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.label}
@@ -94,24 +96,24 @@ export function CreatePaymentDialog({ sites, accounts, vendors }: { sites: Optio
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="amount">Amount</Label>
+              <Label htmlFor="amount">{t("common.amount")}</Label>
               <Input id="amount" type="number" step="any" {...register("amount")} />
               {errors.amount && <p className="text-sm text-red-500">{errors.amount.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="paymentDate">Payment Date</Label>
+              <Label htmlFor="paymentDate">{t("payments.form.paymentDate")}</Label>
               <Input id="paymentDate" type="date" {...register("paymentDate")} />
               {errors.paymentDate && <p className="text-sm text-red-500">{errors.paymentDate.message}</p>}
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t("common.notes")}</Label>
             <Textarea id="notes" {...register("notes")} />
           </div>
           {serverError && <p className="text-sm text-red-500">{serverError}</p>}
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save Payment"}
+              {isSubmitting ? t("common.saving") : t("payments.form.save")}
             </Button>
           </div>
         </form>
