@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { STANDARD_ITEMS } from "./standard-items";
+import { STANDARD_ITEMS } from "../src/standard-items";
 
 const prisma = new PrismaClient();
 

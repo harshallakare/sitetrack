@@ -7,6 +7,7 @@ import type {
   ResetUserPasswordInput,
   UpdateUserInput,
 } from "@sitetrack/shared-types";
+import { STANDARD_ITEMS } from "@sitetrack/database";
 import { isUniqueConstraintError } from "../common/prisma-errors";
 import { slugify } from "../common/slugify";
 import { PrismaService } from "../prisma/prisma.service";
@@ -39,10 +40,11 @@ export class PlatformAdminService {
 
   /**
    * Onboards a brand-new customer directly from the admin panel: creates
-   * the organization, its owner account, and a default cash account in one
-   * transaction -- the same shape as self-serve /auth/register, minus
-   * issuing a session (the admin isn't logging in as this customer). The
-   * owner email must be brand new, same rule register() enforces.
+   * the organization, its owner account, a default cash account, and the
+   * standard item catalog, all in one transaction -- the same shape as
+   * self-serve /auth/register, minus issuing a session (the admin isn't
+   * logging in as this customer). The owner email must be brand new, same
+   * rule register() enforces.
    */
   async createOrganization(input: CreateOrganizationInput) {
     const email = input.ownerEmail.toLowerCase().trim();
@@ -78,6 +80,16 @@ export class PlatformAdminService {
             type: "CASH",
             description: "Default cash account for petty expenses and cash transactions",
           },
+        });
+        // Starter catalog so a brand-new org isn't staring at an empty
+        // Items page -- same list every demo org gets via seed.ts.
+        await tx.item.createMany({
+          data: STANDARD_ITEMS.map((item) => ({
+            organizationId: organization.id,
+            name: item.name,
+            unitOfMeasure: item.unitOfMeasure,
+            category: item.category,
+          })),
         });
         return { organization, user };
       });

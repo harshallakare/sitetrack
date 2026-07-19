@@ -12,6 +12,7 @@ import type {
   RegisterInput,
   Role,
 } from "@sitetrack/shared-types";
+import { STANDARD_ITEMS } from "@sitetrack/database";
 import { isUniqueConstraintError } from "../common/prisma-errors";
 import { slugify } from "../common/slugify";
 import { PrismaService } from "../prisma/prisma.service";
@@ -95,6 +96,16 @@ export class AuthService {
             type: "CASH",
             description: "Default cash account for petty expenses and cash transactions",
           },
+        });
+        // Starter catalog so a brand-new org isn't staring at an empty
+        // Items page -- same list every demo org gets via seed.ts.
+        await tx.item.createMany({
+          data: STANDARD_ITEMS.map((item) => ({
+            organizationId: organization.id,
+            name: item.name,
+            unitOfMeasure: item.unitOfMeasure,
+            category: item.category,
+          })),
         });
         return { organization, user, membership };
       }));

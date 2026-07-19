@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
-import { STANDARD_ITEMS } from "./standard-items";
+import { STANDARD_ITEMS } from "../src/standard-items";
 
 const prisma = new PrismaClient();
 
