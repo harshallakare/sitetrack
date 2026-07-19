@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
-import type { CheckoutSessionResult, VerifyCheckoutInput } from "@sitetrack/shared-types";
+import type { CheckoutSessionResult, UpdatePlanInput, VerifyCheckoutInput } from "@sitetrack/shared-types";
 import { PrismaService } from "../prisma/prisma.service";
 import { writeAuditLog } from "../common/audit/write-audit-log";
 import { RazorpayService } from "./razorpay.service";
@@ -32,8 +32,8 @@ export class PlansService implements OnModuleInit {
    * row exists, later edits to DEFAULT_PLANS above do NOT overwrite it --
    * live pricing belongs to the database, and a code deploy silently
    * repricing existing customers would be worse than a stale constant. To
-   * change live pricing, update the Plan rows directly (or build an admin
-   * plan editor; today's admin UI only assigns plans to orgs).
+   * change live pricing day-to-day, use the admin panel's plan editor
+   * (updatePlan below); DEFAULT_PLANS only matters on a brand-new deployment.
    */
   async onModuleInit() {
     for (const plan of DEFAULT_PLANS) {
@@ -44,6 +44,42 @@ export class PlansService implements OnModuleInit {
     await this.prisma.unscoped.plan
       .updateMany({ where: { slug: { in: LEGACY_PLAN_SLUGS } }, data: { isActive: false } })
       .catch((err) => this.logger.error("Failed to deactivate legacy plans", err));
+  }
+
+  /**
+   * Public, unauthenticated subset for the marketing page's pricing section
+   * -- deliberately narrower than listPlans() (no id/providerPlanId/isActive,
+   * nothing that's an internal implementation detail).
+   */
+  listPublicPlans() {
+    return this.prisma.unscoped.plan.findMany({
+      where: { isActive: true },
+      orderBy: { priceMonthlyMinor: "asc" },
+      select: { slug: true, name: true, maxSites: true, priceMonthlyMinor: true },
+    });
+  }
+
+  /**
+   * Admin edits a plan's displayed name/price. If the price actually
+   * changes, also clears providerPlanId: Razorpay plan amounts are
+   * immutable once created (ensureProviderPlan short-circuits on an
+   * existing id), so without this a price edit here would silently keep
+   * charging the old amount on the next checkout while showing the new one.
+   * Existing subscribers are unaffected either way -- they keep whatever
+   * Razorpay subscription they already authorized until they cancel/renew.
+   */
+  async updatePlan(slug: string, input: UpdatePlanInput) {
+    const plan = await this.prisma.unscoped.plan.findUnique({ where: { slug } });
+    if (!plan) throw new NotFoundException("Plan not found");
+
+    const data: { name?: string; priceMonthlyMinor?: number; providerPlanId?: null } = {};
+    if (input.name !== undefined) data.name = input.name;
+    if (input.priceMonthlyMinor !== undefined && input.priceMonthlyMinor !== plan.priceMonthlyMinor) {
+      data.priceMonthlyMinor = input.priceMonthlyMinor;
+      data.providerPlanId = null;
+    }
+
+    return this.prisma.unscoped.plan.update({ where: { slug }, data });
   }
 
   listPlans() {

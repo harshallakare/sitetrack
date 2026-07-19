@@ -15,6 +15,46 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { serverFetch } from "@/lib/server-api";
+
+interface PublicPlan {
+  slug: string;
+  name: string;
+  maxSites: number;
+  priceMonthlyMinor: number;
+}
+
+// Marketing copy per plan (bullets, description, CTA) stays in code -- only
+// name and price come from the database (see /admin/plans in the platform
+// admin panel). Used only if a plan's slug isn't recognized below, or as a
+// last resort if the API is unreachable when this page renders.
+const PLAN_COPY: Record<string, { description: string; features: string[]; cta: string; highlighted: boolean }> = {
+  free: {
+    description: "Get started with a single site.",
+    features: ["1 site", "Unlimited vendors & items", "Unlimited team members", "Full activity log"],
+    cta: "Get Started Free",
+    highlighted: false,
+  },
+  unlimited: {
+    description: "For contractors running multiple sites at once.",
+    features: ["Unlimited sites", "Everything in Free", "Vendor ledger & budget tracking", "Priority support"],
+    cta: "Upgrade Anytime",
+    highlighted: true,
+  },
+};
+const DEFAULT_PLAN_COPY = { description: "", features: [] as string[], cta: "Get Started", highlighted: false };
+
+// Only used if the API can't be reached when this page renders, so the
+// marketing site never goes fully blank on the pricing section.
+const FALLBACK_PLANS: PublicPlan[] = [
+  { slug: "free", name: "Free", maxSites: 1, priceMonthlyMinor: 0 },
+  { slug: "unlimited", name: "Unlimited", maxSites: -1, priceMonthlyMinor: 99900 },
+];
+
+function formatPrice(priceMonthlyMinor: number) {
+  if (priceMonthlyMinor === 0) return { price: "₹0", period: "forever" };
+  return { price: `₹${(priceMonthlyMinor / 100).toLocaleString("en-IN")}`, period: "/month" };
+}
 
 const BENEFITS = [
   {
@@ -111,27 +151,6 @@ const FEATURES = [
   },
 ];
 
-const PLANS = [
-  {
-    name: "Free",
-    price: "₹0",
-    period: "forever",
-    description: "Get started with a single site.",
-    features: ["1 site", "Unlimited vendors & items", "Unlimited team members", "Full activity log"],
-    cta: "Get Started Free",
-    highlighted: false,
-  },
-  {
-    name: "Unlimited",
-    price: "₹999",
-    period: "/month",
-    description: "For contractors running multiple sites at once.",
-    features: ["Unlimited sites", "Everything in Free", "Vendor ledger & budget tracking", "Priority support"],
-    cta: "Upgrade Anytime",
-    highlighted: true,
-  },
-];
-
 const FAQS = [
   {
     question: "Is my organization's data isolated from other organizations?",
@@ -153,7 +172,13 @@ const FAQS = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const publicPlans = await serverFetch<PublicPlan[]>("/plans").catch(() => FALLBACK_PLANS);
+  const plans = publicPlans.map((plan) => {
+    const copy = PLAN_COPY[plan.slug] ?? DEFAULT_PLAN_COPY;
+    return { ...plan, ...copy, ...formatPrice(plan.priceMonthlyMinor) };
+  });
+
   return (
     <main className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
@@ -310,9 +335,9 @@ export default function HomePage() {
             <p className="mt-2 text-muted-foreground">Start free with one site. Upgrade when you need more.</p>
           </div>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {PLANS.map((plan) =>
+            {plans.map((plan) =>
               plan.highlighted ? (
-                <Card key={plan.name} className="border-transparent bg-foreground text-background shadow-md">
+                <Card key={plan.slug} className="border-transparent bg-foreground text-background shadow-md">
                   <CardHeader>
                     <span className="inline-flex w-fit items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground">
                       Most popular
@@ -339,7 +364,7 @@ export default function HomePage() {
                   </CardContent>
                 </Card>
               ) : (
-                <Card key={plan.name}>
+                <Card key={plan.slug}>
                   <CardHeader>
                     <CardTitle>{plan.name}</CardTitle>
                     <div className="flex items-baseline gap-1">

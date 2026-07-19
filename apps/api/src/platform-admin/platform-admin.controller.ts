@@ -6,6 +6,7 @@ import {
   resetUserPasswordSchema,
   setOrganizationActiveSchema,
   setOrganizationPlanSchema,
+  updatePlanSchema,
   updateUserSchema,
   type AddOrganizationUserInput,
   type CreateOrganizationInput,
@@ -13,6 +14,7 @@ import {
   type ResetUserPasswordInput,
   type SetOrganizationActiveInput,
   type SetOrganizationPlanInput,
+  type UpdatePlanInput,
   type UpdateUserInput,
 } from "@sitetrack/shared-types";
 import { Public } from "../common/decorators/public.decorator";
@@ -44,6 +46,11 @@ export class PlatformAdminController {
   @Get("plans")
   listPlans() {
     return this.plansService.listPlans();
+  }
+
+  @Patch("plans/:slug")
+  updatePlan(@Param("slug") slug: string, @Body(new ZodValidationPipe(updatePlanSchema)) dto: UpdatePlanInput) {
+    return this.plansService.updatePlan(slug, dto);
   }
 
   @Put("organizations/:id/plan")

@@ -1,12 +1,13 @@
 import { Global, Module } from "@nestjs/common";
 import { BillingController } from "./billing.controller";
+import { PublicPlansController } from "./public-plans.controller";
 import { PlansService } from "./plans.service";
 import { RazorpayService } from "./razorpay.service";
 
 // Global so SitesService can inject PlansService for the create-site limit.
 @Global()
 @Module({
-  controllers: [BillingController],
+  controllers: [BillingController, PublicPlansController],
   providers: [PlansService, RazorpayService],
   exports: [PlansService, RazorpayService],
 })
