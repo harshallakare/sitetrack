@@ -183,6 +183,15 @@ export function AppShell({
                 >
                   हिन्दी
                 </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  onSelect={() => setLocale("mr")}
+                  className={cn(
+                    "cursor-pointer rounded-sm px-3 py-2 text-sm outline-none hover:bg-muted",
+                    locale === "mr" && "font-semibold"
+                  )}
+                >
+                  मराठी
+                </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>

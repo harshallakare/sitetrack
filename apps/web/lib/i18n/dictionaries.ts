@@ -70,4 +70,35 @@ const hi: Dictionary = {
   "role.ACCOUNTANT": "लेखाकार",
 };
 
-export const dictionaries: Record<Locale, Dictionary> = { en, hi };
+const mr: Dictionary = {
+  "app.name": "साइटट्रॅक",
+  "nav.dashboard": "डॅशबोर्ड",
+  "nav.sites": "साइट्स",
+  "nav.vendors": "विक्रेते",
+  "nav.items": "साहित्य",
+  "nav.deliveries": "डिलिव्हरी",
+  "nav.accounts": "खाती",
+  "nav.payments": "पेमेंट्स",
+  "nav.team": "टीम",
+  "nav.activity": "क्रियाकलाप",
+  "nav.billing": "बिलिंग",
+  "action.logout": "लॉग आउट",
+  "action.platformAdmin": "प्लॅटफॉर्म अ‍ॅडमिन",
+  "common.language": "भाषा",
+  "common.theme": "थीम",
+  "common.lightMode": "लाइट मोड",
+  "common.darkMode": "डार्क मोड",
+  "dashboard.overview": "आढावा",
+  "dashboard.subtitle": "तुमच्या बांधकाम साइट व्यवस्थापनाचा सारांश",
+  "dashboard.totalBalance": "एकूण रोख आणि बँक शिल्लक",
+  "team.title": "टीम",
+  "team.subtitle": "या संस्थेत लोकांना आमंत्रित करा आणि त्यांच्या भूमिका व्यवस्थापित करा",
+  "team.members": "सदस्य",
+  "team.pendingInvites": "प्रलंबित आमंत्रणे",
+  "team.invite": "सदस्याला आमंत्रित करा",
+  "role.OWNER": "मालक",
+  "role.SUPERVISOR": "पर्यवेक्षक",
+  "role.ACCOUNTANT": "लेखापाल",
+};
+
+export const dictionaries: Record<Locale, Dictionary> = { en, hi, mr };
