@@ -19,6 +19,10 @@ export const DELIVERY_STATUSES = ["PENDING", "RECEIVED", "DISPUTED"] as const;
 export const deliveryStatusSchema = z.enum(DELIVERY_STATUSES);
 export type DeliveryStatus = z.infer<typeof deliveryStatusSchema>;
 
+export const SERVICE_BOOKING_STATUSES = ["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const;
+export const serviceBookingStatusSchema = z.enum(SERVICE_BOOKING_STATUSES);
+export type ServiceBookingStatus = z.infer<typeof serviceBookingStatusSchema>;
+
 export const UNITS_OF_MEASURE = [
   "BAG",
   "CUBIC_METER",

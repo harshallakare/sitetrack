@@ -5,6 +5,7 @@ export * from "./schemas/site";
 export * from "./schemas/vendor";
 export * from "./schemas/item";
 export * from "./schemas/service";
+export * from "./schemas/service-booking";
 export * from "./schemas/delivery";
 export * from "./schemas/account";
 export * from "./schemas/payment";

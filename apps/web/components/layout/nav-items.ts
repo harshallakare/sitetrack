@@ -13,6 +13,7 @@ import {
   Calculator,
   TrendingUp,
   Wrench,
+  CalendarCheck,
 } from "lucide-react";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
@@ -28,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/vendors", labelKey: "nav.vendors", icon: Users },
   { href: "/items", labelKey: "nav.items", icon: Package },
   { href: "/services", labelKey: "nav.services", icon: Wrench },
+  { href: "/service-bookings", labelKey: "nav.bookings", icon: CalendarCheck },
   { href: "/deliveries", labelKey: "nav.deliveries", icon: Truck },
   { href: "/accounts", labelKey: "nav.accounts", icon: Wallet },
   { href: "/payments", labelKey: "nav.payments", icon: ArrowLeftRight },

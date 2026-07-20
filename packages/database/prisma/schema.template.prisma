@@ -44,6 +44,7 @@ model Organization {
   vendors     Vendor[]
   items       Item[]
   services    Service[]
+  serviceBookings ServiceBooking[]
   tags        Tag[]
   deliveries  Delivery[]
   accounts    Account[]
@@ -217,11 +218,12 @@ model Site {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  deliveries   Delivery[]
-  accounts     Account[]
-  payments     Payment[]
-  budgetLines  BudgetLine[]
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries      Delivery[]
+  accounts        Account[]
+  payments        Payment[]
+  budgetLines     BudgetLine[]
+  serviceBookings ServiceBooking[]
 
   @@index([organizationId])
 }
@@ -274,10 +276,11 @@ model Vendor {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  tags         VendorTag[]
-  deliveries   Delivery[]
-  payments     Payment[]
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tags            VendorTag[]
+  deliveries      Delivery[]
+  payments        Payment[]
+  serviceBookings ServiceBooking[]
 
   @@index([organizationId])
 }
@@ -337,9 +340,39 @@ model Service {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookings     ServiceBooking[]
 
   @@index([organizationId])
+}
+
+// status is app-validated (SERVICE_BOOKING_STATUSES), not a Prisma enum.
+model ServiceBooking {
+  id              String    @id @default(cuid())
+  organizationId  String
+  siteId          String
+  serviceId       String
+  vendorId        String?
+  bookingDate     DateTime
+  quantity        Float
+  rateMinor       Int
+  totalMinor      Int
+  status          String    @default("SCHEDULED")
+  progressPercent Int       @default(0)
+  notes           String?
+  completedAt     DateTime?
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id])
+  vendor       Vendor?      @relation(fields: [vendorId], references: [id])
+
+  @@index([organizationId, siteId])
+  @@index([serviceId])
+  @@index([vendorId])
 }
 
 // ---------------------------------------------------------------------------
