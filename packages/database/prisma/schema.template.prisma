@@ -43,6 +43,7 @@ model Organization {
   sites       Site[]
   vendors     Vendor[]
   items       Item[]
+  services    Service[]
   tags        Tag[]
   deliveries  Delivery[]
   accounts    Account[]
@@ -321,6 +322,23 @@ model ItemTag {
   tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([itemId, tagId])
+  @@index([organizationId])
+}
+
+model Service {
+  id                String   @id @default(cuid())
+  organizationId    String
+  name              String
+  category          String?
+  unitOfMeasure     String
+  standardRateMinor Int?
+  description       String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
   @@index([organizationId])
 }
 

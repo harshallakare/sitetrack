@@ -28,6 +28,7 @@ import { BillingModule } from "./billing/billing.module";
 import { WebhooksModule } from "./webhooks/webhooks.module";
 import { TagsModule } from "./tags/tags.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
+import { ServicesModule } from "./services/services.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { TenantContextGuard } from "./common/guards/tenant-context.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -70,6 +71,7 @@ import { RolesGuard } from "./common/guards/roles.guard";
     WebhooksModule,
     TagsModule,
     AnalyticsModule,
+    ServicesModule,
   ],
   controllers: [HealthController],
   providers: [
