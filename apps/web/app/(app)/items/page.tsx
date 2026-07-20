@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { serverFetch } from "@/lib/server-api";
 import { fromMinorUnits } from "@sitetrack/shared-types";
 import { getServerT } from "@/lib/i18n/server";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { CreateItemDialog } from "./create-item-dialog";
 import { EditItemDialog } from "./edit-item-dialog";
+import { CopyItemButton } from "./copy-item-button";
 
 interface Item {
   id: string;
@@ -46,15 +49,30 @@ export default async function ItemsPage() {
           {items.map((item) => {
             const stats = statsByItem[item.id] ?? EMPTY_STATS;
             return (
-              <div key={item.id} className="rounded-lg border border-border p-4">
-                <div className="flex items-start justify-between gap-2">
+              <div
+                key={item.id}
+                className="relative rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
+              >
+                {/* Full-card overlay link so clicking anywhere navigates to the
+                    detail page; the action buttons below sit above it (z-10 +
+                    pointer-events-auto) so they intercept their own clicks
+                    instead of the overlay. Buttons can't be nested inside the
+                    Link itself -- <button> inside <a> is invalid HTML and the
+                    anchor's native navigation fires regardless of
+                    stopPropagation on a descendant. */}
+                <Link href={`/items/${item.id}`} className="absolute inset-0 z-0" aria-label={item.name} />
+                <div className="pointer-events-none relative z-10 flex items-start justify-between gap-2">
                   <div className="font-medium">{item.name}</div>
-                  <EditItemDialog item={item} />
+                  <div className="pointer-events-auto flex items-center gap-0.5">
+                    <EditItemDialog item={item} />
+                    <CopyItemButton item={item} />
+                    <DeleteButton path={`/items/${item.id}`} confirmMessage={t("items.deleteConfirm")} />
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="pointer-events-none relative z-10 text-sm text-muted-foreground">
                   {item.unitOfMeasure.replace("_", " ")} {item.category ? `· ${item.category}` : ""}
                 </div>
-                <div className="mt-3 flex items-center justify-between text-sm">
+                <div className="pointer-events-none relative z-10 mt-3 flex items-center justify-between text-sm">
                   <div>
                     <div className="text-muted-foreground">{t("items.totalDelivered")}</div>
                     <div className="font-semibold">{stats.totalDelivered}</div>

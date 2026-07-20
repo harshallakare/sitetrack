@@ -84,6 +84,66 @@ export class ItemsService {
     return this.get(item.id);
   }
 
+  /**
+   * Soft delete (isActive: false), matching list()'s filter -- historical
+   * deliveries still reference the item row, so this can't be a hard delete.
+   */
+  async remove(id: string, actorUserId: string) {
+    const before = await this.prisma.db.item.findUnique({ where: { id } });
+    const item = await this.prisma.db.item.update({ where: { id }, data: { isActive: false } });
+
+    await writeAuditLog(this.prisma.db, {
+      organizationId: this.prisma.organizationId,
+      entityType: "Item",
+      entityId: id,
+      action: "DELETE",
+      actorUserId,
+      before,
+      after: item,
+    });
+
+    return { id: item.id };
+  }
+
+  /** Item info + delivery stats/history for the item detail page. */
+  async getDetail(id: string) {
+    const item = await this.get(id);
+    if (!item) return null;
+
+    const lineItems = await this.prisma.db.deliveryLineItem.findMany({
+      where: { itemId: id },
+      include: {
+        delivery: { include: { vendor: true, site: true } },
+      },
+      orderBy: { delivery: { deliveryDate: "desc" } },
+    });
+
+    const prices = lineItems.map((li) => li.unitPriceMinor);
+    const totalDelivered = lineItems.reduce((sum, li) => sum + li.quantity, 0);
+    const totalDeliveries = new Set(lineItems.map((li) => li.deliveryId)).size;
+
+    return {
+      item,
+      stats: {
+        totalDeliveries,
+        totalDelivered,
+        avgUnitPriceMinor: prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0,
+        minUnitPriceMinor: prices.length ? Math.min(...prices) : 0,
+        maxUnitPriceMinor: prices.length ? Math.max(...prices) : 0,
+      },
+      history: lineItems.map((li) => ({
+        id: li.id,
+        deliveryId: li.deliveryId,
+        date: li.delivery.deliveryDate,
+        vendorName: li.delivery.vendor.companyName ?? li.delivery.vendor.contactPerson,
+        siteName: li.delivery.site.name,
+        quantity: li.quantity,
+        unitPriceMinor: li.unitPriceMinor,
+        lineTotalMinor: li.lineTotalMinor,
+      })),
+    };
+  }
+
   async update(id: string, dto: UpdateItemInput, actorUserId: string) {
     const { tagNames, ...rest } = dto;
     const before = await this.prisma.db.item.findUnique({ where: { id } });

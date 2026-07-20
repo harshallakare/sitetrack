@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
 import {
   createItemSchema,
   updateItemSchema,
@@ -38,6 +38,13 @@ export class ItemsController {
     return this.itemsService.getDeliveryStats(id);
   }
 
+  @Get(":id/detail")
+  async getDetail(@Param("id") id: string) {
+    const detail = await this.itemsService.getDetail(id);
+    if (!detail) throw new NotFoundException("Item not found");
+    return detail;
+  }
+
   @Roles("OWNER", "SUPERVISOR")
   @Post()
   create(
@@ -55,5 +62,11 @@ export class ItemsController {
     @Body(new ZodValidationPipe(updateItemSchema)) dto: UpdateItemInput
   ) {
     return this.itemsService.update(id, dto, currentUser.userId);
+  }
+
+  @Roles("OWNER", "SUPERVISOR")
+  @Delete(":id")
+  remove(@Param("id") id: string, @CurrentUser() currentUser: TenantContext) {
+    return this.itemsService.remove(id, currentUser.userId);
   }
 }
