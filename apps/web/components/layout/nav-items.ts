@@ -10,6 +10,7 @@ import {
   UserPlus,
   History,
   CreditCard,
+  Calculator,
 } from "lucide-react";
 import type { TranslationKey } from "@/lib/i18n/dictionaries";
 
@@ -27,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/deliveries", labelKey: "nav.deliveries", icon: Truck },
   { href: "/accounts", labelKey: "nav.accounts", icon: Wallet },
   { href: "/payments", labelKey: "nav.payments", icon: ArrowLeftRight },
+  { href: "/tools", labelKey: "nav.tools", icon: Calculator },
   { href: "/team", labelKey: "nav.team", icon: UserPlus },
   { href: "/activity", labelKey: "nav.activity", icon: History },
   { href: "/billing", labelKey: "nav.billing", icon: CreditCard },

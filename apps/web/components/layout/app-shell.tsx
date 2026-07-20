@@ -115,7 +115,7 @@ export function AppShell({
         </Dialog.Root>
       </div>
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar: org switcher + user + logout */}
         <header className="flex items-center justify-end gap-3 border-b border-border px-4 py-3 md:px-6">
           <DropdownMenu.Root>
