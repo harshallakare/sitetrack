@@ -2,12 +2,14 @@ import { serverFetch } from "@/lib/server-api";
 import { fromMinorUnits } from "@sitetrack/shared-types";
 import { getServerT } from "@/lib/i18n/server";
 import { CreateItemDialog } from "./create-item-dialog";
+import { EditItemDialog } from "./edit-item-dialog";
 
 interface Item {
   id: string;
   name: string;
   unitOfMeasure: string;
   category: string | null;
+  description: string | null;
 }
 
 interface ItemStats {
@@ -45,7 +47,10 @@ export default async function ItemsPage() {
             const stats = statsByItem[item.id] ?? EMPTY_STATS;
             return (
               <div key={item.id} className="rounded-lg border border-border p-4">
-                <div className="font-medium">{item.name}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-medium">{item.name}</div>
+                  <EditItemDialog item={item} />
+                </div>
                 <div className="text-sm text-muted-foreground">
                   {item.unitOfMeasure.replace("_", " ")} {item.category ? `· ${item.category}` : ""}
                 </div>
