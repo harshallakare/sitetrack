@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post } from "@nestjs/common";
 import {
   createVendorSchema,
   updateVendorSchema,
@@ -59,5 +59,11 @@ export class VendorsController {
     @Body(new ZodValidationPipe(updateVendorSchema)) dto: UpdateVendorInput
   ) {
     return this.vendorsService.update(id, dto, currentUser.userId);
+  }
+
+  @Roles("OWNER", "SUPERVISOR")
+  @Delete(":id")
+  remove(@Param("id") id: string, @CurrentUser() currentUser: TenantContext) {
+    return this.vendorsService.remove(id, currentUser.userId);
   }
 }

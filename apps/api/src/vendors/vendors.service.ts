@@ -77,4 +77,26 @@ export class VendorsService {
 
     return this.get(id);
   }
+
+  /**
+   * Soft delete (isActive: false), matching list()'s filter -- historical
+   * deliveries/payments/returns still reference the vendor row, so this
+   * can't be a hard delete.
+   */
+  async remove(id: string, actorUserId: string) {
+    const before = await this.prisma.db.vendor.findUnique({ where: { id } });
+    const vendor = await this.prisma.db.vendor.update({ where: { id }, data: { isActive: false } });
+
+    await writeAuditLog(this.prisma.db, {
+      organizationId: this.prisma.organizationId,
+      entityType: "Vendor",
+      entityId: id,
+      action: "DELETE",
+      actorUserId,
+      before,
+      after: vendor,
+    });
+
+    return { id: vendor.id };
+  }
 }

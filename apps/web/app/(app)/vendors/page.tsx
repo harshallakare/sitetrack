@@ -2,7 +2,9 @@ import Link from "next/link";
 import { serverFetch } from "@/lib/server-api";
 import { fromMinorUnits } from "@sitetrack/shared-types";
 import { getServerT } from "@/lib/i18n/server";
+import { DeleteButton } from "@/components/ui/delete-button";
 import { CreateVendorDialog } from "./create-vendor-dialog";
+import { EditVendorDialog } from "./edit-vendor-dialog";
 
 interface Vendor {
   id: string;
@@ -10,6 +12,8 @@ interface Vendor {
   companyName: string | null;
   email: string | null;
   phone: string | null;
+  address: string | null;
+  paymentDetails: string | null;
   tags: Array<{ tag: { id: string; name: string } }>;
 }
 
@@ -74,10 +78,14 @@ export default async function VendorsPage() {
                     <td className={`py-3 pr-4 text-right font-semibold ${outstanding > 0 ? "text-primary" : "text-muted-foreground"}`}>
                       {money(outstanding)}
                     </td>
-                    <td className="py-3 pr-4 text-right">
-                      <Link href={`/vendors/${vendor.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
-                        {t("vendors.viewLedger")}
-                      </Link>
+                    <td className="py-3 pr-4">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href={`/vendors/${vendor.id}`} className="text-sm text-primary underline-offset-4 hover:underline">
+                          {t("vendors.viewLedger")}
+                        </Link>
+                        <EditVendorDialog vendor={vendor} />
+                        <DeleteButton path={`/vendors/${vendor.id}`} confirmMessage={t("vendors.deleteConfirm")} />
+                      </div>
                     </td>
                   </tr>
                 );
@@ -89,15 +97,27 @@ export default async function VendorsPage() {
             {vendors.map((vendor) => {
               const outstanding = outstandingById.get(vendor.id) ?? 0;
               return (
-                <Link key={vendor.id} href={`/vendors/${vendor.id}`} className="rounded-lg border border-border p-4">
-                  <div className="flex items-center justify-between">
+                <div key={vendor.id} className="relative rounded-lg border border-border p-4">
+                  {/* Overlay Link so the whole card navigates to the ledger;
+                      action buttons sit above it (pointer-events-auto) -- see
+                      items/page.tsx for why buttons can't nest inside Link. */}
+                  <Link href={`/vendors/${vendor.id}`} className="absolute inset-0 z-0" aria-label={vendor.contactPerson} />
+                  <div className="pointer-events-none relative z-10 flex items-center justify-between">
                     <div className="font-medium">{vendor.contactPerson}</div>
-                    <div className={`font-semibold ${outstanding > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                      {money(outstanding)}
+                    <div className="flex items-center gap-2">
+                      <div className={`font-semibold ${outstanding > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                        {money(outstanding)}
+                      </div>
+                      <div className="pointer-events-auto flex items-center">
+                        <EditVendorDialog vendor={vendor} />
+                        <DeleteButton path={`/vendors/${vendor.id}`} confirmMessage={t("vendors.deleteConfirm")} />
+                      </div>
                     </div>
                   </div>
-                  {vendor.companyName && <div className="text-sm text-muted-foreground">{vendor.companyName}</div>}
-                </Link>
+                  {vendor.companyName && (
+                    <div className="pointer-events-none relative z-10 text-sm text-muted-foreground">{vendor.companyName}</div>
+                  )}
+                </div>
               );
             })}
           </div>
