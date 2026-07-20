@@ -45,6 +45,7 @@ model Organization {
   items       Item[]
   services    Service[]
   serviceBookings ServiceBooking[]
+  vendorReturns   VendorReturn[]
   tags        Tag[]
   deliveries  Delivery[]
   accounts    Account[]
@@ -224,6 +225,7 @@ model Site {
   payments        Payment[]
   budgetLines     BudgetLine[]
   serviceBookings ServiceBooking[]
+  vendorReturns   VendorReturn[]
 
   @@index([organizationId])
 }
@@ -281,6 +283,7 @@ model Vendor {
   deliveries      Delivery[]
   payments        Payment[]
   serviceBookings ServiceBooking[]
+  returns         VendorReturn[]
 
   @@index([organizationId])
 }
@@ -309,9 +312,10 @@ model Item {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  tags         ItemTag[]
-  lineItems    DeliveryLineItem[]
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tags              ItemTag[]
+  lineItems         DeliveryLineItem[]
+  returnLineItems   VendorReturnLineItem[]
 
   @@index([organizationId])
 }
@@ -425,6 +429,53 @@ model DeliveryLineItem {
   item     Item     @relation(fields: [itemId], references: [id])
 
   @@index([deliveryId])
+  @@index([itemId])
+  @@index([organizationId])
+  @@index([vendorId])
+}
+
+// status is app-validated (VENDOR_RETURN_STATUSES), not a Prisma enum.
+// Only COMPLETED returns count against the vendor's outstanding payable
+// (see LedgerService) -- PENDING/REJECTED don't move money yet.
+model VendorReturn {
+  id              String   @id @default(cuid())
+  organizationId  String
+  siteId          String
+  vendorId        String
+  returnDate      DateTime
+  reason          String?
+  status          String   @default("PENDING")
+  notes           String?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site                   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  vendor       Vendor                 @relation(fields: [vendorId], references: [id])
+  lineItems    VendorReturnLineItem[]
+
+  @@index([organizationId, siteId])
+  @@index([vendorId])
+}
+
+model VendorReturnLineItem {
+  id             String @id @default(cuid())
+  organizationId String
+  vendorReturnId String
+  itemId         String
+  // Denormalized from the parent VendorReturn so per-vendor returned totals
+  // can be computed with a single groupBy, same rationale as
+  // DeliveryLineItem.vendorId above.
+  vendorId       String
+  quantity       Float
+  unitPriceMinor Int
+  lineTotalMinor Int
+
+  vendorReturn VendorReturn @relation(fields: [vendorReturnId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id])
+
+  @@index([vendorReturnId])
   @@index([itemId])
   @@index([organizationId])
   @@index([vendorId])

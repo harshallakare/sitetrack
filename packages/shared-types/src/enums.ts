@@ -23,6 +23,10 @@ export const SERVICE_BOOKING_STATUSES = ["SCHEDULED", "IN_PROGRESS", "COMPLETED"
 export const serviceBookingStatusSchema = z.enum(SERVICE_BOOKING_STATUSES);
 export type ServiceBookingStatus = z.infer<typeof serviceBookingStatusSchema>;
 
+export const VENDOR_RETURN_STATUSES = ["PENDING", "COMPLETED", "REJECTED"] as const;
+export const vendorReturnStatusSchema = z.enum(VENDOR_RETURN_STATUSES);
+export type VendorReturnStatus = z.infer<typeof vendorReturnStatusSchema>;
+
 export const UNITS_OF_MEASURE = [
   "BAG",
   "CUBIC_METER",

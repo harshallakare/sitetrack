@@ -30,6 +30,7 @@ import { TagsModule } from "./tags/tags.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { ServicesModule } from "./services/services.module";
 import { ServiceBookingsModule } from "./service-bookings/service-bookings.module";
+import { VendorReturnsModule } from "./vendor-returns/vendor-returns.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { TenantContextGuard } from "./common/guards/tenant-context.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -74,6 +75,7 @@ import { RolesGuard } from "./common/guards/roles.guard";
     AnalyticsModule,
     ServicesModule,
     ServiceBookingsModule,
+    VendorReturnsModule,
   ],
   controllers: [HealthController],
   providers: [

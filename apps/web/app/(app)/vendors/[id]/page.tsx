@@ -1,22 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Truck, ArrowLeftRight } from "lucide-react";
+import { ArrowLeft, Truck, ArrowLeftRight, Undo2 } from "lucide-react";
 import { serverFetch } from "@/lib/server-api";
 import { fromMinorUnits } from "@sitetrack/shared-types";
 import { getServerT } from "@/lib/i18n/server";
 
 interface LedgerEntry {
-  type: "DELIVERY" | "PAYMENT";
+  type: "DELIVERY" | "PAYMENT" | "RETURN";
   id: string;
   date: string;
   reference: string | null;
   siteName: string | null;
   amountMinor: number;
+  status?: string;
 }
 interface Ledger {
   vendor: { id: string; contactPerson: string; companyName: string | null };
   deliveredMinor: number;
   paidMinor: number;
+  returnedMinor: number;
   outstandingMinor: number;
   entries: LedgerEntry[];
 }
@@ -43,7 +45,7 @@ export default async function VendorLedgerPage({ params }: { params: { id: strin
         <p className="text-sm text-muted-foreground">{ledger.vendor.contactPerson} · {t("vendors.ledger")}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-border p-4">
           <div className="text-xs uppercase text-muted-foreground">{t("vendors.totalDelivered")}</div>
           <div className="text-2xl font-bold">{money(ledger.deliveredMinor)}</div>
@@ -51,6 +53,10 @@ export default async function VendorLedgerPage({ params }: { params: { id: strin
         <div className="rounded-lg border border-border p-4">
           <div className="text-xs uppercase text-muted-foreground">{t("vendors.totalPaid")}</div>
           <div className="text-2xl font-bold">{money(ledger.paidMinor)}</div>
+        </div>
+        <div className="rounded-lg border border-border p-4">
+          <div className="text-xs uppercase text-muted-foreground">{t("returns.totalReturned")}</div>
+          <div className="text-2xl font-bold">{money(ledger.returnedMinor)}</div>
         </div>
         <div className="rounded-lg border border-border p-4">
           <div className="text-xs uppercase text-muted-foreground">{t("vendors.colOutstanding")}</div>
@@ -69,20 +75,27 @@ export default async function VendorLedgerPage({ params }: { params: { id: strin
             {ledger.entries.map((e) => (
               <div key={`${e.type}-${e.id}`} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <span className={`rounded-md p-2 ${e.type === "DELIVERY" ? "bg-muted" : "bg-primary/10"}`}>
-                    {e.type === "DELIVERY" ? <Truck className="h-4 w-4" /> : <ArrowLeftRight className="h-4 w-4" />}
+                  <span className={`rounded-md p-2 ${e.type === "DELIVERY" ? "bg-muted" : e.type === "RETURN" ? "bg-orange-500/10" : "bg-primary/10"}`}>
+                    {e.type === "DELIVERY" ? (
+                      <Truck className="h-4 w-4" />
+                    ) : e.type === "RETURN" ? (
+                      <Undo2 className="h-4 w-4" />
+                    ) : (
+                      <ArrowLeftRight className="h-4 w-4" />
+                    )}
                   </span>
                   <div>
                     <div className="text-sm font-medium">
-                      {e.type === "DELIVERY" ? t("vendors.delivery") : t("vendors.payment")}
+                      {e.type === "DELIVERY" ? t("vendors.delivery") : e.type === "RETURN" ? t("returns.title") : t("vendors.payment")}
                       {e.reference ? ` · ${e.reference}` : ""}
+                      {e.type === "RETURN" && e.status ? ` (${e.status})` : ""}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {new Date(e.date).toLocaleDateString()} {e.siteName ? `· ${e.siteName}` : ""}
                     </div>
                   </div>
                 </div>
-                <div className={`font-semibold ${e.type === "DELIVERY" ? "text-foreground" : "text-green-600"}`}>
+                <div className={`font-semibold ${e.type === "DELIVERY" ? "text-foreground" : e.type === "RETURN" ? "text-orange-600" : "text-green-600"}`}>
                   {e.type === "DELIVERY" ? "+" : "−"}
                   {money(e.amountMinor)}
                 </div>
