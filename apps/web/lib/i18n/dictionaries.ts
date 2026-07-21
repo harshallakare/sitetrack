@@ -394,6 +394,15 @@ const en = {
   "analytics.noResults": "No deliveries match these filters",
   "analytics.savePrompt": "Name this filter set",
   "analytics.calculateFailed": "Failed to calculate analytics",
+
+  "tally.title": "Export to Tally",
+  "tally.subtitle": "Download purchases, payments, and returns as Tally-importable voucher XML",
+  "tally.from": "From",
+  "tally.to": "To",
+  "tally.export": "Export to Tally",
+  "tally.exported": "Exported {count} vouchers. Import via Gateway of Tally → Import Data → Vouchers.",
+  "tally.noData": "No transactions found for the selected dates.",
+  "tally.failed": "Failed to export",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -784,6 +793,15 @@ const hi: Dictionary = {
   "analytics.noResults": "इन फ़िल्टरों से कोई डिलीवरी मेल नहीं खाती",
   "analytics.savePrompt": "इस फ़िल्टर सेट को नाम दें",
   "analytics.calculateFailed": "एनालिटिक्स गणना करने में विफल",
+
+  "tally.title": "Tally में निर्यात करें",
+  "tally.subtitle": "खरीद, भुगतान और रिटर्न को Tally-आयात योग्य वाउचर XML के रूप में डाउनलोड करें",
+  "tally.from": "से",
+  "tally.to": "तक",
+  "tally.export": "Tally में निर्यात करें",
+  "tally.exported": "{count} वाउचर निर्यात किए गए। Gateway of Tally → Import Data → Vouchers से आयात करें।",
+  "tally.noData": "चयनित तिथियों के लिए कोई लेनदेन नहीं मिला।",
+  "tally.failed": "निर्यात करने में विफल",
 };
 
 const mr: Dictionary = {
@@ -1171,6 +1189,15 @@ const mr: Dictionary = {
   "analytics.noResults": "या फिल्टरशी जुळणारी कोणतीही डिलिव्हरी नाही",
   "analytics.savePrompt": "या फिल्टर सेटला नाव द्या",
   "analytics.calculateFailed": "अ‍ॅनालिटिक्स मोजण्यात अयशस्वी",
+
+  "tally.title": "Tally मध्ये निर्यात करा",
+  "tally.subtitle": "खरेदी, पेमेंट आणि परतावे Tally-आयात करण्यायोग्य व्हाउचर XML म्हणून डाउनलोड करा",
+  "tally.from": "पासून",
+  "tally.to": "पर्यंत",
+  "tally.export": "Tally मध्ये निर्यात करा",
+  "tally.exported": "{count} व्हाउचर निर्यात केले. Gateway of Tally → Import Data → Vouchers द्वारे आयात करा.",
+  "tally.noData": "निवडलेल्या तारखांसाठी कोणतेही व्यवहार आढळले नाहीत.",
+  "tally.failed": "निर्यात करण्यात अयशस्वी",
 };
 
 export const dictionaries: Record<Locale, Dictionary> = { en, hi, mr };
