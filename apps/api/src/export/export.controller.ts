@@ -1,4 +1,5 @@
 import { Controller, Get, Query } from "@nestjs/common";
+import { Roles } from "../common/decorators/roles.decorator";
 import { ExportService, type TallyExportFilters } from "./export.service";
 
 function parseDate(value?: string): Date | undefined {
@@ -17,6 +18,10 @@ export class ExportController {
    * the same cookie-authenticated proxy as every other fetch, rather than
    * streaming a file and dealing with auth on a raw <a download> link.
    */
+  // Accounting export -- exposes vendor payment amounts and bank/cash account
+  // names, so it's limited to the finance-facing roles. Supervisors (site ops)
+  // get cost insight through /analytics instead, which carries no payee detail.
+  @Roles("OWNER", "ACCOUNTANT")
   @Get("tally")
   tally(
     @Query("from") from?: string,

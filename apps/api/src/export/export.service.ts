@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { fromMinorUnits } from "@sitetrack/shared-types";
 import { PrismaService } from "../prisma/prisma.service";
 import { buildTallyXml, type TallyVoucher } from "./tally-xml";
@@ -7,6 +7,13 @@ import { buildTallyXml, type TallyVoucher } from "./tally-xml";
 // contractor's accountant can rename/remap it inside Tally on import if their
 // chart of accounts differs -- the point is a consistent, predictable name.
 const PURCHASE_LEDGER = "Purchase Account";
+
+// Upper bound on how many source records (deliveries + payments + returns) a
+// single export may span. Without this, an all-time export on a large/old org
+// would load years of rows into memory and build one enormous XML string.
+// Hitting it means "narrow the date range" -- a month or quarter is the normal
+// accounting cadence anyway, and is well under this ceiling.
+const MAX_EXPORT_RECORDS = 5000;
 
 export interface TallyExportFilters {
   from?: Date;
@@ -32,16 +39,22 @@ export class ExportService {
       return Object.keys(range).length ? { [field]: range } : {};
     };
 
+    // Fetch one past the cap so an overflow is detectable, then reject rather
+    // than silently truncating the books (a partial export would be worse than
+    // no export). The take bounds worst-case memory at ~3x the cap.
+    const take = MAX_EXPORT_RECORDS + 1;
     const [deliveries, payments, returns] = await Promise.all([
       this.prisma.db.delivery.findMany({
         where: { ...siteWhere, ...dateRange("deliveryDate") },
         include: { vendor: true, lineItems: { select: { lineTotalMinor: true } } },
         orderBy: { deliveryDate: "asc" },
+        take,
       }),
       this.prisma.db.payment.findMany({
         where: { ...siteWhere, ...dateRange("paymentDate") },
         include: { vendor: true, account: true },
         orderBy: { paymentDate: "asc" },
+        take,
       }),
       this.prisma.db.vendorReturn.findMany({
         // Only COMPLETED returns move money -- PENDING/REJECTED must not appear
@@ -49,8 +62,15 @@ export class ExportService {
         where: { status: "COMPLETED", ...siteWhere, ...dateRange("returnDate") },
         include: { vendor: true, lineItems: { select: { lineTotalMinor: true } } },
         orderBy: { returnDate: "asc" },
+        take,
       }),
     ]);
+
+    if (deliveries.length + payments.length + returns.length > MAX_EXPORT_RECORDS) {
+      throw new BadRequestException(
+        `This export spans more than ${MAX_EXPORT_RECORDS} transactions. Narrow the date range (a month or quarter at a time) and try again.`
+      );
+    }
 
     const vouchers: TallyVoucher[] = [];
 
